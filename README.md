@@ -1,4 +1,4 @@
-# isrsrv-script
+# hlnsrv-script
 Bash script for running Hellion on a linux server
 
 **Required packages**
