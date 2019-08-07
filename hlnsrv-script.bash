@@ -312,9 +312,6 @@ script_install() {
 	echo "steamcmd"
 	echo ""
 	echo "If these packages aren't installed, terminate this script with CTRL+C and install them."
-	echo "Also make sure that you edited this script and entered your steam username and password at the top of the script."
-	echo "In the middle of the installation process you will be asked for a steam guard code. Also make sure your steam guard"
-	echo "is set to email only (don't use the mobile app and don't use no second authentication. USE STEAM GUARD VIA EMAIL!"
 	echo ""
 	echo "The installation will enable linger for the user specified (allows user services to be ran on boot)."
 	echo "It will also enable the services needed to run the game server by your specifications."
@@ -555,7 +552,7 @@ script_install() {
 	
 	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-1.timer"
 	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-2.timer"
-	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-3.timer"
+	#su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-3.timer"
 	
 	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		su - $USER -c "systemctl --user enable $SERVICE_NAME-mkdir-tmpfs.service"
@@ -761,11 +758,6 @@ case "$1" in
 	-help)
 		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"
 		echo -e "${CYAN}$NAME server script by 7thCore${NC}"
-		echo ""
-		echo -e "${LIGHTRED}Before doing anything edit the script and input your steam username and password for the auto update feature to work.${NC}"
-		echo -e "${LIGHTRED}The variables for it are located at the very top of the script.${NC}"
-		echo -e "${LIGHTRED}Also if you have Steam Guard on your mobile phone activated, disable it because steamcmd always asks for the${NC}"
-		echo -e "${LIGHTRED}two factor authentication code and breaks the auto update feature. Use Steam Guard via email.${NC}"
 		echo ""
 		echo -e "${GREEN}start ${RED}- ${GREEN}Start the server${NC}"
 		echo -e "${GREEN}stop ${RED}- ${GREEN}Stop the server${NC}"
