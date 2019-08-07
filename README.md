@@ -35,7 +35,7 @@ Bash script for running Hellion on a linux server
 
 -shutdown gracefully on os shutdown
 
--script auto update from github
+-script auto update from github (not working atm)
 
 **Instructions:**
 
