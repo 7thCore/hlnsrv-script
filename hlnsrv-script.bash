@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-VERSION="201908071658"
+VERSION="201908081145"
 
 #Basics
 export NAME="HlnSrv" #Name of the screen
@@ -18,7 +18,6 @@ fi
 
 #Server configuration
 SERVICE_NAME="hlnsrv" #Name of the service files, script and script log
-SRV_DIR_NAME="hellion" #Main directory name
 SRV_DIR="/home/$USER/server" #Location of the server located on your hdd/ssd
 SCRIPT_NAME="$SERVICE_NAME-script.bash" #Script name
 SCRIPT_DIR="/home/$USER/scripts" #Location of this script
@@ -33,8 +32,8 @@ WINE_PREFIX_GAME_DIR="drive_c/Games/Hellion" #Server executable directory
 WINE_PREFIX_GAME_EXE="HELLION_Dedicated.exe" #Server executable
 
 #Ramdisk configuration
-TMPFS_ENABLE="1" #Set this to 1 if you want to run the server on a ramdisk
-TMPFS_DIR="/mnt/tmpfs/$SRV_DIR_NAME" #Locaton of your ramdisk. Note: you have to configure the ramdisk in /etc/fstab before using this.
+TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs.
+TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
 
 #TmpFs/hdd variables
 if [[ "$TMPFS_ENABLE" == "1" ]]; then
@@ -54,7 +53,7 @@ BCKP_DELOLD="+3" #Delete old backups. Ex +3 deletes 3 days old backups.
 #Log configuration
 export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")/"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
-export LOG_TMP="/tmp/$SERVICE_NAME-screen.log"
+export LOG_TMP="/tmp/$USER-$SERVICE_NAME-screen.log"
 LOG_DELOLD="+7" #Delete old logs. Ex +14 deletes 14 days old logs.
 
 TIMEOUT=120
@@ -327,6 +326,13 @@ script_install() {
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service - Executes scheduled script functions: autorestart, save, sync and update."
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer - Timer for scheduled command execution of $SERVICE_NAME-timer-2.service"
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service - Executes scheduled update checks for this script"
+	echo "$SCRIPT_DIR/$SERVICE_NAME-update.bash - Update script for automatic updates from github."
+	echo "$SCRIPT_DIR/$SERVICE_NAME-config.conf - Stores steam username and password. Also stores tmpfs/ramdisk setting."
+	echo "$SCRIPT_DIR/$SERVICE_NAME-screen.conf - Screen configuration to enable logging."
+	echo "$UPDATE_DIR/installed.buildid - Information on installed buildid (AppInfo from Steamcmd)"
+	echo "$UPDATE_DIR/available.buildid - Information on available buildid (AppInfo from Steamcmd)"
+	echo "$UPDATE_DIR/installed.timeupdated - Information on time the server was last updated (AppInfo from Steamcmd)"
+	echo "$UPDATE_DIR/available.timeupdated - Information on time the server was last updated (AppInfo from Steamcmd)"
 	echo ""
 	read -p "Press any key to continue" -n 1 -s -r
 	echo ""
@@ -339,6 +345,7 @@ script_install() {
 	echo -en "$USER_PASS\n$USER_PASS\n" | sudo passwd $USER
 	
 	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		TMPFS_ENABLE="1"
 		read -p "Do you already have a ramdisk mounted at /mnt/tmpfs? (y/n): " TMPFS_PRESENT
 		if [[ "$TMPFS_PRESENT" =~ ^([nN][oO]|[nN])$ ]]; then
 			read -p "Ramdisk size (Minimum of 6GB for a single server, 12GB for two and so on): " TMPFS_SIZE
@@ -552,7 +559,7 @@ script_install() {
 	
 	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-1.timer"
 	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-2.timer"
-	#su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-3.timer"
+	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-3.timer"
 	
 	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		su - $USER -c "systemctl --user enable $SERVICE_NAME-mkdir-tmpfs.service"
@@ -685,12 +692,21 @@ script_install() {
 	echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '	if [[ "$(systemctl --user show -p ActiveState --value '"$SERVICE_NAME.service"')" == "active" ]]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '		sed -i '\''s/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/'\' "$SCRIPT_DIR/$SCRIPT_NAME" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '	elif [[ "$(systemctl --user show -p ActiveState --value '"$SERVICE_NAME-tmpfs.service"')" == "active" ]]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '		sed -i '\''s/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/'\' "$SCRIPT_DIR/$SCRIPT_NAME" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	if [ "$AVAILABLE" -eq "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update complete." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update failed." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo 'else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
@@ -699,6 +715,9 @@ script_install() {
 	echo 'rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 	
 	chmod +x /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	
+	touch $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'tmpfs_enable='"$TMPFS_ENABLE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	
 	sudo chown -R $USER:users /home/$USER/{backups,logs,scripts,server,updates}
 	
