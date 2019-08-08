@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-VERSION="201908081145"
+VERSION="201908081852"
 
 #Basics
 export NAME="HlnSrv" #Name of the screen
@@ -73,27 +73,27 @@ script_logs() {
 	if [ ! -d "$LOG_DIR" ]; then
 		mkdir -p $LOG_DIR
 	fi
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	# Delete old logs
 	find $LOG_DIR -mtime $LOG_DELOLD -exec rm {} \;
 	# Delete empty folders
 	find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Delete old logs) Deleting old logs complete." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs complete." | tee -a "$LOG_SCRIPT"
 }
 
 #Prints out if the server is running
 script_status() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
 #If the script variable is set to 0, the script won't issue any commands ran. It will just exit.
 script_enabled() {
 	if [[ "$SCRIPT_ENABLED" == "0" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Script status) Server script is disabled" | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script status) Server script is disabled" | tee -a "$LOG_SCRIPT"
 		script_status
 		exit 0
 	fi
@@ -103,40 +103,40 @@ script_enabled() {
 script_sync() {
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Server is not running." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is not running." | tee -a "$LOG_SCRIPT"
 		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
 			rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR #| sed -e "s/^/$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Syncing: /" | tee -a "$LOG_SCRIPT"
 			sleep 1
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been completed." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been completed." | tee -a "$LOG_SCRIPT"
 		fi
 	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Server does not have tmpfs enabled." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server does not have tmpfs enabled." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
 #Start the server
 script_start() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server start initialized." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server start initialized." | tee -a "$LOG_SCRIPT"
 		systemctl --user start $SERVICE
 		sleep 1
 		while [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; do
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server is activating. Please wait..." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server is activating. Please wait..." | tee -a "$LOG_SCRIPT"
 			sleep 1
 		done
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server has been successfully activated." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server has been successfully activated." | tee -a "$LOG_SCRIPT"
 			sleep 1
 		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
 			sleep 1
 		fi
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server is already running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server is already running." | tee -a "$LOG_SCRIPT"
 		sleep 1
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
 		sleep 1
 	fi
 }
@@ -144,26 +144,26 @@ script_start() {
 #Stop the server
 script_stop() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Stop) Server is not running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server is not running." | tee -a "$LOG_SCRIPT"
 		sleep 1
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
 		systemctl --user stop $SERVICE
 		sleep 1
 		while [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; do
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Stop) Server is deactivating. Please wait..." | tee -a "$LOG_SCRIPT"
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server is deactivating. Please wait..." | tee -a "$LOG_SCRIPT"
 			sleep 1
 		done
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Stop) Server is deactivated." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server is deactivated." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
 #Restart the server
 script_restart() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Restart) Server is not running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Restart) Server is going to restart in 15-30 seconds, please wait..." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is going to restart in 15-30 seconds, please wait..." | tee -a "$LOG_SCRIPT"
 		sleep 1
 		script_stop
 		sleep 1
@@ -175,22 +175,22 @@ script_restart() {
 #If the server proces is terminated it auto restarts it
 script_autorestart() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Autorestart) Server not running, attempting to start." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Autorestart) Server not running, attempting to start." | tee -a "$LOG_SCRIPT"
 		script_start
 		sleep 1
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Autorestart) Server running, no need to restart." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Autorestart) Server running, no need to restart." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
 #Deletes old backups
 script_deloldbackup() {
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Delete old backup) Deleting old backups: $BCKP_DELOLD days old." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups: $BCKP_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	# Delete old backups
 	find $BCKP_DIR -mtime $BCKP_DELOLD -exec rm {} \;
 	# Delete empty folders
 	find $BCKP_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Delete old backup) Deleting old backups complete." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups complete." | tee -a "$LOG_SCRIPT"
 }
 
 #Backs up the server
@@ -200,16 +200,16 @@ script_backup() {
 		mkdir -p $BCKP_DEST
 	fi
 	#Backup source to destination
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Backup) Backup has been initiated." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Backup) Backup has been initiated." | tee -a "$LOG_SCRIPT"
 	cd "$BCKP_SRC_DIR"
 	tar -cpvzf $BCKP_DEST/$(date +"%Y%m%d%H%M").tar.gz $BCKP_SRC #| sed -e "s/^/$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Backup) Compressing: /" | tee -a "$LOG_SCRIPT"
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Backup) Backup complete." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Backup) Backup complete." | tee -a "$LOG_SCRIPT"
 }
 
 #Automaticly backs up the server and deletes old backups
 script_autobackup() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Autobackup) Server is not running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Autobackup) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 		sleep 1
 		script_backup
@@ -220,7 +220,7 @@ script_autobackup() {
 
 #Check for updates. If there are updates available, shut down the server, update it and restart it.
 script_update() {
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Initializing update check." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Initializing update check." | tee -a "$LOG_SCRIPT"
 	if [ ! -f $UPDATE_DIR/installed.buildid ] ; then
 		touch $UPDATE_DIR/installed.buildid
 		echo "0" > $UPDATE_DIR/installed.buildid
@@ -230,16 +230,16 @@ script_update() {
 		echo "0" > $UPDATE_DIR/installed.timeupdated
 	fi
 	
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Removing Steam/appcache/appinfo.vdf" | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Removing Steam/appcache/appinfo.vdf" | tee -a "$LOG_SCRIPT"
 	rm -rf "/home/$USER/.steam/appcache/appinfo.vdf"
 	
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Connecting to steam servers." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Connecting to steam servers." | tee -a "$LOG_SCRIPT"
 	
 	steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.buildid
 	
 	steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.timeupdated
 	
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Received application info data." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Received application info data." | tee -a "$LOG_SCRIPT"
 	
 	INSTALLED_BUILDID=$(cat $UPDATE_DIR/installed.buildid)
 	AVAILABLE_BUILDID=$(cat $UPDATE_DIR/available.buildid)
@@ -247,9 +247,9 @@ script_update() {
 	AVAILABLE_TIME=$(cat $UPDATE_DIR/available.timeupdated)
 	
 	if [ "$AVAILABLE_TIME" -gt "$INSTALLED_TIME" ]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) New update detected." | tee -a "$LOG_SCRIPT"
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Available: BuildID: $AVAILABLE_BUILDID, TimeUpdated: $AVAILABLE_TIME" | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) New update detected." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Available: BuildID: $AVAILABLE_BUILDID, TimeUpdated: $AVAILABLE_TIME" | tee -a "$LOG_SCRIPT"
 		sleep 1
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 			WAS_ACTIVE="1"
@@ -259,9 +259,9 @@ script_update() {
 		if [[ "$TMPFS_ENABLE" == "1" ]]; then
 			rm -rf $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
 		fi
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Updating..." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Updating..." | tee -a "$LOG_SCRIPT"
 		steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID validate +quit
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Update completed." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Update completed." | tee -a "$LOG_SCRIPT"
 		echo "$AVAILABLE_BUILDID" > $UPDATE_DIR/installed.buildid
 		echo "$AVAILABLE_TIME" > $UPDATE_DIR/installed.timeupdated
 		if [ "$WAS_ACTIVE" == "1" ]; then
@@ -276,8 +276,8 @@ script_update() {
 			script_start
 		fi
 	elif [ "$AVAILABLE_TIME" -eq "$INSTALLED_TIME" ]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) No new updates detected." | tee -a "$LOG_SCRIPT"
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) No new updates detected." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
 	fi
 }
 
@@ -777,6 +777,7 @@ case "$1" in
 	-help)
 		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"
 		echo -e "${CYAN}$NAME server script by 7thCore${NC}"
+		echo "Version: $VERSION"
 		echo ""
 		echo -e "${GREEN}start ${RED}- ${GREEN}Start the server${NC}"
 		echo -e "${GREEN}stop ${RED}- ${GREEN}Stop the server${NC}"
