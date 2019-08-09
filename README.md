@@ -49,15 +49,13 @@ chmod +x ./hlnsrv-script.bash
 
 If you plan on using a ramdisk to run your server from, the script will give you that option.
 
-Sometime between the insallation process you will be prompted for steam's two factor authentication code and after that steamcmd will not ask you for another code once it runs if you are using steam guard via email.
-
 Now for the installation.
 
 Run the script with root permitions like so (necessary for user creation):
 
 sudo ./hlnsrv-script.bash -install
 
-The script will create a new non-sudo enabled user from wich the game server will run. If you want to have multiple game servers on the same machin just run the script multiple times but with a diffrent username inputted to the script.
+The script will create a new non-sudo enabled user from wich the game server will run. If you want to have multiple game servers on the same machine just run the script multiple times but with a diffrent username inputted to the script.
 
 After the installation finishes you can reboot the operating system and the service files will start the game server automaticly on boot.
 
