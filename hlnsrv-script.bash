@@ -116,8 +116,11 @@ script_enabled() {
 #Systemd service sends email if email notifications for crashes enabled
 script_send_crash_email() {
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
-		The script detected the server not running or the service has failed and will attempt to restart it. Please check the server and/or service logs for more information.
+		systemctl --user status $SERVICE > $LOG_DIR/$SERVICE.log
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT -A $LOG_DIR/$SERVICE.log <<- EOF
+		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the server and/or service logs for more information.
+		
+		Service log is in attachment.
 		EOF
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs." | tee -a "$LOG_SCRIPT"
