@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-export VERSION="201908182017"
+export VERSION="201908182021"
 
 #Basics
 export NAME="IsRSrv" #Name of the screen
@@ -117,7 +117,7 @@ script_enabled() {
 script_send_crash_email() {
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
 		systemctl --user status $SERVICE > $LOG_DIR/$SERVICE.log
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT -A $LOG_DIR/$SERVICE.log <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT -a $LOG_DIR/$SERVICE.log <<- EOF
 		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the server and/or service logs for more information.
 		
 		Service log is in attachment.
