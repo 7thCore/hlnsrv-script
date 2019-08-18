@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-export VERSION="201908181400"
+export VERSION="201908181432"
 
 #Basics
 export NAME="IsRSrv" #Name of the screen
