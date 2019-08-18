@@ -65,7 +65,7 @@ BCKP_DEST="$BCKP_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #How backups are
 BCKP_DELOLD="+3" #Delete old backups. Ex +3 deletes 3 days old backups.
 
 #Log configuration
-export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")/"
+export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
 export LOG_TMP="/tmp/$USER-$SERVICE_NAME-screen.log"
 LOG_DELOLD="+7" #Delete old logs. Ex +14 deletes 14 days old logs.
