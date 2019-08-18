@@ -13,6 +13,8 @@ Bash script for running Hellion on a linux server
 
 -steamcmd
 
+-postfix (optional for email notifications)
+
 **Features:**
 
 -auto backups
@@ -36,6 +38,10 @@ Bash script for running Hellion on a linux server
 -shutdown gracefully on os shutdown
 
 -script auto update from github
+
+-send email notifications after 3 crashes within a 5 minute time limit (optional)
+
+-send email notifications when server updated (optional)
 
 **Instructions:**
 
