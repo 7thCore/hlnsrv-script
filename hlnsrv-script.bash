@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-export VERSION="201908182025"
+export VERSION="201908201421"
 
 #Basics
 export NAME="IsRSrv" #Name of the screen
@@ -12,8 +12,8 @@ if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the use
 	USER="$(whoami)"
 else
 	echo "WARNING: Installation mode"
-	read -p "Please enter username (default interstellar_rift):" USER #Enter desired username that will be used when creating the new user
-	USER=${USER:=interstellar_rift} #If no username was given, use default
+	read -p "Please enter username (default hellion):" USER #Enter desired username that will be used when creating the new user
+	USER=${USER:=hellion} #If no username was given, use default
 fi
 
 #Server configuration
