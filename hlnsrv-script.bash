@@ -735,6 +735,7 @@ script_install_update_script() {
 		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo "}" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo 'script_update_force() {' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
