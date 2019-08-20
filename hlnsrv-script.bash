@@ -97,10 +97,16 @@ script_logs() {
 
 #Prints out if the server is running
 script_status() {
-	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in failed state. Please check logs." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is activating. Please wait." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
@@ -116,43 +122,35 @@ script_enabled() {
 #Systemd service sends email if email notifications for crashes enabled
 script_send_crash_email() {
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
-		systemctl --user status $SERVICE > $LOG_DIR/$SERVICE.log
-		mail -a $LOG_DIR/$SERVICE.log -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
-		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the server and/or service logs for more information.
+		systemctl --user status $SERVICE > $LOG_DIR/service_log.txt
+		zip -j $LOG_DIR/service_logs.zip $LOG_DIR/service_log.txt
+		zip -j $LOG_DIR/script_logs.zip $LOG_SCRIPT
+		mail -a $LOG_DIR/service_logs.zip -a $LOG_DIR/script_logs.zip -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
+		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the logs for more information.
 		
-		Service log is in attachment.
+		Attachment contents:
+		service_logs.zip - Logs from the systemd service
+		script_logs.zip - Logs from the script
+		
+		DO NOT SEND ANY OF THESE TO THE DEVS!
+		
+		Contact the script developer 7thCore on discord for help regarding any problems the script may have caused.
 		EOF
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs." | tee -a "$LOG_SCRIPT"
 }
 
-#Issue the save command to the server
-script_save() {
-	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Save) Server is not running." | tee -a "$LOG_SCRIPT"
-	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Save) Save game to disk has been initiated." | tee -a "$LOG_SCRIPT"
-		( sleep 5 && screen -p 0 -S $NAME -X eval 'stuff "save"\\015' ) &
-		timeout $TIMEOUT /bin/bash -c '
-		while read line; do
-			if [[ "$line" =~ "[Server]: Save completed." ]]; then
-				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Save) Save game to disk has been completed." | tee -a "$LOG_SCRIPT"
-				break
-			else
-				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Save) Save game to disk is in progress. Please wait..."
-			fi
-		done < <(tail -n1 -f $LOG_TMP)'
-		if [ $? -eq 124 ]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Save) Save time limit exceeded."
-		fi
-	fi
-}
-
 #Sync server files from ramdisk to hdd/ssd
 script_sync() {
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
-		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
+		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is not running." | tee -a "$LOG_SCRIPT"
+		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is in failed state. Aborting sync." | tee -a "$LOG_SCRIPT"
+		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is activating. Aborting sync." | tee -a "$LOG_SCRIPT"
+		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is in deactivating. Aborting sync." | tee -a "$LOG_SCRIPT"
 		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
 			rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR #| sed -e "s/^/$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Syncing: /" | tee -a "$LOG_SCRIPT"
@@ -210,7 +208,11 @@ script_stop() {
 #Restart the server
 script_restart() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is not running." | tee -a "$LOG_SCRIPT"
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is not running. Use -start to start the server." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is activating. Aborting restart." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is in deactivating. Aborting restart." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is going to restart in 15-30 seconds, please wait..." | tee -a "$LOG_SCRIPT"
 		sleep 1
@@ -431,11 +433,281 @@ script_update() {
 	fi
 }
 
+#Install or reinstall systemd services
+script_install_services() {
+	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+		read -p "Are you sure you want to reinstall the systemd services? (y/n): " REINSTALL_SYSTEMD_SERVICES
+		if [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			INSTALL_SYSTEMD_SERVICES_STATE="1"
+		elif [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation aborted." | tee -a "$LOG_SCRIPT"
+			INSTALL_SYSTEMD_SERVICES_STATE="0"
+		fi
+	else
+		INSTALL_SYSTEMD_SERVICES_STATE="1"
+	fi
+	
+	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service
+		fi
+		
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service
+		fi
+			
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
+		[Unit]
+		Description=$NAME TmpFs dir creator
+		After=home-$USER-tmpfs.mount
+		
+		[Service]
+		Type=oneshot
+		WorkingDirectory=/home/$USER/
+		ExecStart=/bin/mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build
+		
+		[Install]
+		WantedBy=default.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
+		[Unit]
+		Description=$NAME TmpFs Server Service 
+		After=network.target home-$USER-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
+		Conflicts=$SERVICE_NAME.service
+		StartLimitBurst=3
+		StartLimitIntervalSec=300
+		StartLimitAction=none
+		OnFailure=$SERVICE_NAME-send-email.service
+		
+		[Service]
+		Type=forking
+		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build/
+		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
+		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
+		ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
+		ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
+		ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
+		ExecStop=/bin/sleep 20
+		ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineserver -k
+		ExecStop=/bin/sleep 10
+		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
+		TimeoutStartSec=infinity
+		TimeoutStopSec=120
+		RestartSec=10
+		Restart=on-failure
+		
+		[Install]
+		WantedBy=default.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME.service <<- EOF
+		[Unit]
+		Description=$NAME Server Service
+		After=network.target
+		Conflicts=$SERVICE_NAME-tmpfs.service
+		StartLimitBurst=3
+		StartLimitIntervalSec=300
+		StartLimitAction=none
+		OnFailure=$SERVICE_NAME-send-email.service
+		
+		[Service]
+		Type=forking
+		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR/Build/
+		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
+		ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
+		ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
+		ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
+		ExecStop=/bin/sleep 20
+		ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineserver -k
+		ExecStop=/bin/sleep 10
+		TimeoutStartSec=infinity
+		TimeoutStopSec=120
+		RestartSec=10
+		Restart=on-failure
+		
+		[Install]
+		WantedBy=default.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 1
+		
+		[Timer]
+		OnCalendar=*-*-* 00:00:00
+		OnCalendar=*-*-* 06:00:00
+		OnCalendar=*-*-* 12:00:00
+		OnCalendar=*-*-* 18:00:00
+		Persistent=true
+		
+		[Install]
+		WantedBy=timers.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 1 Service
+		
+		[Service]
+		Type=oneshot
+		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_one
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 2
+		
+		[Timer]
+		OnCalendar=*-*-* *:15:00
+		OnCalendar=*-*-* *:30:00
+		OnCalendar=*-*-* *:45:00
+		OnCalendar=*-*-* 01:00:00
+		OnCalendar=*-*-* 02:00:00
+		OnCalendar=*-*-* 03:00:00
+		OnCalendar=*-*-* 04:00:00
+		OnCalendar=*-*-* 05:00:00
+		OnCalendar=*-*-* 07:00:00
+		OnCalendar=*-*-* 08:00:00
+		OnCalendar=*-*-* 09:00:00
+		OnCalendar=*-*-* 10:00:00
+		OnCalendar=*-*-* 11:00:00
+		OnCalendar=*-*-* 13:00:00
+		OnCalendar=*-*-* 14:00:00
+		OnCalendar=*-*-* 15:00:00
+		OnCalendar=*-*-* 16:00:00
+		OnCalendar=*-*-* 17:00:00
+		OnCalendar=*-*-* 19:00:00
+		OnCalendar=*-*-* 20:00:00
+		OnCalendar=*-*-* 21:00:00
+		OnCalendar=*-*-* 22:00:00
+		OnCalendar=*-*-* 23:00:00
+		Persistent=true
+		
+		[Install]
+		WantedBy=timers.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 2 Service
+		
+		[Service]
+		Type=oneshot
+		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_two
+		EOF
+			
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 3 (Auto update script from github)
+		
+		[Timer]
+		OnCalendar=*-*-* 23:55:00
+		Persistent=true
+		
+		[Install]
+		WantedBy=timers.target
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service <<- EOF
+		[Unit]
+		Description=$NAME Script Timer 3 Service (Auto update script from github)
+		
+		[Service]
+		Type=oneshot
+		ExecStart=$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		EOF
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service <<- EOF
+		[Unit]
+		Description=$NAME Script Send Email notification Service
+		
+		[Service]
+		Type=oneshot
+		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -send_crash_email
+		EOF
+	fi
+	
+	if [ "$EUID" -ne "0" ]; then
+		if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
+			systemctl --user daemon-reload
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation complete." | tee -a "$LOG_SCRIPT"
+		fi
+	fi
+}
+
+#Reinstalls the wine prefix
+script_reinstall_prefix() {
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+	read -p "Are you sure you want to reinstall the wine prefix? (y/n): " REINSTALL_PREFIX
+	if [[ "$REINSTALL_PREFIX" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		#If there is not a backup folder for today, create one
+		if [ ! -d "$BCKP_DEST" ]; then
+			mkdir -p $BCKP_DEST
+		fi
+		read -p "Do you want to keep the game installation and server data (saves,configs,etc.)? (y/n): " REINSTALL_PREFIX_KEEP_DATA
+		if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			mkdir -p $BCKP_DIR/prefix_backup/{game,appdata}
+			mv "$SRV_DIR/$WINE_PREFIX_GAME_DIR"/* $BCKP_DIR/prefix_backup/game
+			mv "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"/* $BCKP_DIR/prefix_backup/appdata
+		fi
+		rm -rf $SRV_DIR
+		Xvfb :5 -screen 0 1024x768x16 &
+		env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
+		env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
+		env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2012
+		env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet472
+		pkill -f Xvfb
+		if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
+			mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"
+			mv $BCKP_DIR/prefix_backup/game/* "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
+			mv $BCKP_DIR/prefix_backup/appdata/* "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"
+			rm -rf $BCKP_DIR/prefix_backup
+		fi
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation complete." | tee -a "$LOG_SCRIPT"
+	elif [[ "$REINSTALL_PREFIX" =~ ^([nN][oO]|[nN])$ ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation aborted." | tee -a "$LOG_SCRIPT"
+	fi
+}
+
 #First timer function for systemd timers to execute parts of the script in order without interfering with each other
 script_timer_one() {
 	script_enabled
 	script_logs
-	script_save
 	script_sync
 	script_autobackup
 	script_update
@@ -445,7 +717,6 @@ script_timer_one() {
 script_timer_two() {
 	script_enabled
 	script_logs
-	script_save
 	script_sync
 	script_update
 }
@@ -460,6 +731,7 @@ script_install() {
 	echo "screen"
 	echo "steamcmd"
 	echo "postfix (optional/for the email feature)"
+	echo "zip (optional but required if using the email feature)"
 	echo ""
 	echo "If these packages aren't installed, terminate this script with CTRL+C and install them."
 	echo "The script will ask you for your steam username and password and will store it in a configuration file for automatic updates."
@@ -596,176 +868,7 @@ script_install() {
 	sudo chown $USER:users /home/$USER/.bash_profile
 	
 	echo "Installing service files"
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
-	[Unit]
-	Description=$NAME TmpFs dir creator
-	After=home-$USER-tmpfs.mount
-	
-	[Service]
-	Type=oneshot
-	WorkingDirectory=/home/$USER/
-	ExecStart=/bin/mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build
-	
-	[Install]
-	WantedBy=default.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
-	[Unit]
-	Description=$NAME TmpFs Server Service 
-	After=network.target home-$USER-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
-	Conflicts=$SERVICE_NAME.service
-	StartLimitBurst=3
-	StartLimitIntervalSec=300
-	StartLimitAction=none
-	OnFailure=$SERVICE_NAME-send-email.service
-	
-	[Service]
-	Type=forking
-	WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build/
-	ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
-	ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-	ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
-	ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
-	ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
-	ExecStop=/bin/sleep 20
-	ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineserver -k
-	ExecStop=/bin/sleep 10
-	ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
-	TimeoutStartSec=infinity
-	TimeoutStopSec=120
-	RestartSec=10
-	Restart=on-failure
-	
-	[Install]
-	WantedBy=default.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME.service <<- EOF
-	[Unit]
-	Description=$NAME Server Service
-	After=network.target
-	Conflicts=$SERVICE_NAME-tmpfs.service
-	StartLimitBurst=3
-	StartLimitIntervalSec=300
-	StartLimitAction=none
-	OnFailure=$SERVICE_NAME-send-email.service
-	
-	[Service]
-	Type=forking
-	WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR/Build/
-	ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-	ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
-	ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
-	ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
-	ExecStop=/bin/sleep 20
-	ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineserver -k
-	ExecStop=/bin/sleep 10
-	TimeoutStartSec=infinity
-	TimeoutStopSec=120
-	RestartSec=10
-	Restart=on-failure
-	
-	[Install]
-	WantedBy=default.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 1
-	
-	[Timer]
-	OnCalendar=*-*-* 00:00:00
-	OnCalendar=*-*-* 06:00:00
-	OnCalendar=*-*-* 12:00:00
-	OnCalendar=*-*-* 18:00:00
-	Persistent=true
-	
-	[Install]
-	WantedBy=timers.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 1 Service
-	
-	[Service]
-	Type=oneshot
-	ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_one
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 2
-	
-	[Timer]
-	OnCalendar=*-*-* *:15:00
-	OnCalendar=*-*-* *:30:00
-	OnCalendar=*-*-* *:45:00
-	OnCalendar=*-*-* 01:00:00
-	OnCalendar=*-*-* 02:00:00
-	OnCalendar=*-*-* 03:00:00
-	OnCalendar=*-*-* 04:00:00
-	OnCalendar=*-*-* 05:00:00
-	OnCalendar=*-*-* 07:00:00
-	OnCalendar=*-*-* 08:00:00
-	OnCalendar=*-*-* 09:00:00
-	OnCalendar=*-*-* 10:00:00
-	OnCalendar=*-*-* 11:00:00
-	OnCalendar=*-*-* 13:00:00
-	OnCalendar=*-*-* 14:00:00
-	OnCalendar=*-*-* 15:00:00
-	OnCalendar=*-*-* 16:00:00
-	OnCalendar=*-*-* 17:00:00
-	OnCalendar=*-*-* 19:00:00
-	OnCalendar=*-*-* 20:00:00
-	OnCalendar=*-*-* 21:00:00
-	OnCalendar=*-*-* 22:00:00
-	OnCalendar=*-*-* 23:00:00
-	Persistent=true
-	
-	[Install]
-	WantedBy=timers.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 2 Service
-	
-	[Service]
-	Type=oneshot
-	ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_two
-	EOF
-		
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 3 (Auto update script from github)
-	
-	[Timer]
-	OnCalendar=*-*-* 23:55:00
-	Persistent=true
-	
-	[Install]
-	WantedBy=timers.target
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service <<- EOF
-	[Unit]
-	Description=$NAME Script Timer 3 Service (Auto update script from github)
-	
-	[Service]
-	Type=oneshot
-	ExecStart=$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	EOF
-	
-	cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service <<- EOF
-	[Unit]
-	Description=$NAME Script Send Email notification Service
-	
-	[Service]
-	Type=oneshot
-	ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -send_crash_email
-	EOF
+	script_install_services
 	
 	sudo chown -R $USER:users /home/$USER/.config/systemd/user
 	
@@ -1012,7 +1115,6 @@ case "$1" in
 		echo -e "${GREEN}start ${RED}- ${GREEN}Start the server${NC}"
 		echo -e "${GREEN}stop ${RED}- ${GREEN}Stop the server${NC}"
 		echo -e "${GREEN}restart ${RED}- ${GREEN}Restart the server${NC}"
-		echo -e "${GREEN}autorestart ${RED}- ${GREEN}Automaticly restart the server if it's not running${NC}"
 		echo -e "${GREEN}save ${RED}- ${GREEN}Issue the save command to the server${NC}"
 		echo -e "${GREEN}sync ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd${NC}"
 		echo -e "${GREEN}backup ${RED}- ${GREEN}Backup files, if server running or not.${NC}"
@@ -1020,6 +1122,8 @@ case "$1" in
 		echo -e "${GREEN}deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
 		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
 		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
+		echo -e "${GREEN}reinstall_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
+		echo -e "${GREEN}reinstall_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
 		echo -e "${GREEN}update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it.${NC}"
 		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server${NC}"
 		echo -e "${GREEN}install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game.${NC}"
@@ -1074,6 +1178,12 @@ case "$1" in
 	-send_crash_email)
 		script_send_crash_email
 		;;
+	-reinstall_services)
+		script_install_services
+		;;
+	-reinstall_prefix)
+		script_reinstall_prefix
+		;;
 	-timer_one)
 		script_timer_one
 		;;
@@ -1086,7 +1196,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|save|sync|backup|autobackup|deloldbackup|autorestart|update|status|install \"server command\"}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|ssk_check|ssk_check_email|reinstall_services|reinstall_prefix|update|status|install \"server command\"}"
 	exit 1
 	;;
 esac
