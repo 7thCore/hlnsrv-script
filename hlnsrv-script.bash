@@ -4,7 +4,7 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 #Leave this variable alone, it is tied in with the systemd service file so it changes accordingly by it.
 SCRIPT_ENABLED="0"
-export VERSION="201908201421"
+export VERSION="201908182214"
 
 #Basics
 export NAME="IsRSrv" #Name of the screen
@@ -110,15 +110,6 @@ script_status() {
 	fi
 }
 
-#If the script variable is set to 0, the script won't issue any commands ran. It will just exit.
-script_enabled() {
-	if [[ "$SCRIPT_ENABLED" == "0" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script status) Server script is disabled" | tee -a "$LOG_SCRIPT"
-		script_status
-		exit 0
-	fi
-}
-
 #Systemd service sends email if email notifications for crashes enabled
 script_send_crash_email() {
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
@@ -143,15 +134,7 @@ script_send_crash_email() {
 #Sync server files from ramdisk to hdd/ssd
 script_sync() {
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
-		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is not running." | tee -a "$LOG_SCRIPT"
-		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is in failed state. Aborting sync." | tee -a "$LOG_SCRIPT"
-		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is activating. Aborting sync." | tee -a "$LOG_SCRIPT"
-		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server is in deactivating. Aborting sync." | tee -a "$LOG_SCRIPT"
-		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
+		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
 			rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR #| sed -e "s/^/$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] (Sync) Syncing: /" | tee -a "$LOG_SCRIPT"
 			sleep 1
@@ -227,9 +210,10 @@ script_restart() {
 script_deloldbackup() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups: $BCKP_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	# Delete old backups
-	find $BCKP_DIR -mtime $BCKP_DELOLD -exec rm {} \;
+	find $BCKP_DIR/* -type f -mtime $BCKP_DELOLD -exec rm {} \;
 	# Delete empty folders
-	find $BCKP_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
+	#find $BCKP_DIR/ -type d 2> /dev/null -empty -exec rm -rf {} \;
+	find $BCKP_DIR/ -type d -empty -delete
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups complete." | tee -a "$LOG_SCRIPT"
 }
 
@@ -259,7 +243,7 @@ script_autobackup() {
 }
 
 script_delete_save() {
-	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete save) WARNING! This will delete the server's save game." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to delete the server's save game? (y/n): " DELETE_SERVER_SAVE
 		if [[ "$DELETE_SERVER_SAVE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -287,7 +271,7 @@ script_delete_save() {
 }
 
 script_change_branch() {
-	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Change branch) Server branch change initiated. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to change the server branch? (y/n): " CHANGE_SERVER_BRANCH
 		if [[ "$CHANGE_SERVER_BRANCH" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -518,8 +502,6 @@ script_install_services() {
 		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build/
 		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
 		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-		ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
-		ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
 		ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
 		ExecStop=/bin/sleep 20
 		ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineserver -k
@@ -548,8 +530,6 @@ script_install_services() {
 		Type=forking
 		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR/Build/
 		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-		ExecStartPost=/usr/bin/sed -i 's/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/' $SCRIPT_DIR/$SCRIPT_NAME
-		ExecStop=/usr/bin/sed -i 's/SCRIPT_ENABLED="1"/SCRIPT_ENABLED="0"/' $SCRIPT_DIR/$SCRIPT_NAME
 		ExecStop=/usr/bin/screen -p 0 -S $NAME -X eval 'stuff "quittimer 15 server shutting down in 15 seconds"\\015'
 		ExecStop=/bin/sleep 20
 		ExecStop=env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineserver -k
@@ -648,7 +628,7 @@ script_install_services() {
 		
 		[Service]
 		Type=oneshot
-		ExecStart=$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		ExecStart=$SCRIPT_DIR/$SERVICE_NAME-update.bash -update
 		EOF
 		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service <<- EOF
@@ -670,55 +650,174 @@ script_install_services() {
 }
 
 #Reinstalls the wine prefix
-script_reinstall_prefix() {
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
-	read -p "Are you sure you want to reinstall the wine prefix? (y/n): " REINSTALL_PREFIX
-	if [[ "$REINSTALL_PREFIX" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		#If there is not a backup folder for today, create one
-		if [ ! -d "$BCKP_DEST" ]; then
-			mkdir -p $BCKP_DEST
+script_install_prefix() {
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+		read -p "Are you sure you want to reinstall the wine prefix? (y/n): " REINSTALL_PREFIX
+		if [[ "$REINSTALL_PREFIX" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			#If there is not a backup folder for today, create one
+			if [ ! -d "$BCKP_DEST" ]; then
+				mkdir -p $BCKP_DEST
+			fi
+			read -p "Do you want to keep the game installation and server data (saves,configs,etc.)? (y/n): " REINSTALL_PREFIX_KEEP_DATA
+			if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				mkdir -p $BCKP_DIR/prefix_backup/game
+				mv "$SRV_DIR/$WINE_PREFIX_GAME_DIR"/* $BCKP_DIR/prefix_backup/game
+			fi
+			rm -rf $SRV_DIR
+			Xvfb :5 -screen 0 1024x768x16 &
+			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
+			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
+			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2012
+			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet472
+			pkill -f Xvfb
+			if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
+				mv $BCKP_DIR/prefix_backup/game/* "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
+				rm -rf $BCKP_DIR/prefix_backup
+			fi
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation complete." | tee -a "$LOG_SCRIPT"
+		elif [[ "$REINSTALL_PREFIX" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation aborted." | tee -a "$LOG_SCRIPT"
 		fi
-		read -p "Do you want to keep the game installation and server data (saves,configs,etc.)? (y/n): " REINSTALL_PREFIX_KEEP_DATA
-		if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-			mkdir -p $BCKP_DIR/prefix_backup/{game,appdata}
-			mv "$SRV_DIR/$WINE_PREFIX_GAME_DIR"/* $BCKP_DIR/prefix_backup/game
-			mv "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"/* $BCKP_DIR/prefix_backup/appdata
+	else
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Cannot reinstall wine prefix while server is running. Aborting..." | tee -a "$LOG_SCRIPT"
+	fi
+}
+
+#Install or reinstall the update script
+script_install_update_script() {
+	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall update script) Systemd services reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+		read -p "Are you sure you want to reinstall the update script? (y/n): " REINSTALL_UPDATE_SCRIPT
+		if [[ "$REINSTALL_UPDATE_SCRIPT" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			INSTALL_UPDATE_SCRIPT_STATE="1"
+		elif [[ "$REINSTALL_UPDATE_SCRIPT" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall update script) Systemd services reinstallation aborted." | tee -a "$LOG_SCRIPT"
+			INSTALL_UPDATE_SCRIPT_STATE="0"
 		fi
-		rm -rf $SRV_DIR
-		Xvfb :5 -screen 0 1024x768x16 &
-		env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
-		env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
-		env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2012
-		env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet472
-		pkill -f Xvfb
-		if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-			mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
-			mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"
-			mv $BCKP_DIR/prefix_backup/game/* "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
-			mv $BCKP_DIR/prefix_backup/appdata/* "$SRV_DIR/$WINE_PREFIX_GAME_CONFIG"
-			rm -rf $BCKP_DIR/prefix_backup
+	else
+		INSTALL_UPDATE_SCRIPT_STATE="1"
+	fi
+	
+	if [[ "$INSTALL_UPDATE_SCRIPT_STATE" == "1" ]]; then
+		if [ -f "/$SCRIPT_DIR/$SERVICE_NAME-update.bash" ]; then
+			rm /$SCRIPT_DIR/$SERVICE_NAME-update.bash
 		fi
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation complete." | tee -a "$LOG_SCRIPT"
-	elif [[ "$REINSTALL_PREFIX" =~ ^([nN][oO]|[nN])$ ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation aborted." | tee -a "$LOG_SCRIPT"
+		
+		echo '#!/bin/bash' > /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'SERVICE_NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 SERVICE_NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'LOG_DIR="/home/'"$USER"'/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'script_update() {' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	if [ "$AVAILABLE" -gt "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo ''  >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		if [ "$AVAILABLE" -eq "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update complete." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update failed." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo "}" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'script_update_force() {' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo "}" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'case "$1" in' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-help)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${CYAN}$NAME server script by 7thCore${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${LIGHTRED}The script updates the primary server script from github.${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${GREEN}update ${RED}- ${GREEN}Check for script updates and update if available${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${GREEN}force_update ${RED}- ${GREEN}Download latest script version and install it no matter if the installed script is the same version${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-update)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		script_update' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-force_update)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		script_force_update' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	*)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo -e "${CYAN}$NAME update script for server script by 7thCore${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo "For more detailed information, execute the script with the -help argument"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo "Usage: $0 {update|force_update}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	exit 1' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'esac' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		
+		chmod +x /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		if [ "$EUID" -ne "0" ]; then
+			if [[ "$INSTALL_UPDATE_SCRIPT_STATE" == "1" ]]; then
+				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall update script) Update script reinstallation complete." | tee -a "$LOG_SCRIPT"
+			fi
+		fi
 	fi
 }
 
 #First timer function for systemd timers to execute parts of the script in order without interfering with each other
 script_timer_one() {
-	script_enabled
-	script_logs
-	script_sync
-	script_autobackup
-	script_update
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in failed state. Please check logs." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is activating. Please wait." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
+		script_enabled
+		script_logs
+		script_sync
+		script_autobackup
+		script_update
+	fi
 }
 
 #Second timer function for systemd timers to execute parts of the script in order without interfering with each other
 script_timer_two() {
-	script_enabled
-	script_logs
-	script_sync
-	script_update
+	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in failed state. Please check logs." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is activating. Please wait." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
+	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
+		script_enabled
+		script_logs
+		script_sync
+		script_update
+	fi
 }
 
 script_install() {
@@ -997,46 +1096,8 @@ script_install() {
 	deflog on
 	EOF
 	
-	echo '#!/bin/bash' > /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'SERVICE_NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 SERVICE_NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'LOG_DIR="/home/'"$USER"'/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'if [ "$AVAILABLE" -gt "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	if [[ "$(systemctl --user show -p ActiveState --value '"$SERVICE_NAME.service"')" == "active" ]]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '		sed -i '\''s/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/'\' "$SCRIPT_DIR/$SCRIPT_NAME" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	elif [[ "$(systemctl --user show -p ActiveState --value '"$SERVICE_NAME-tmpfs.service"')" == "active" ]]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '		sed -i '\''s/SCRIPT_ENABLED="0"/SCRIPT_ENABLED="1"/'\' "$SCRIPT_DIR/$SCRIPT_NAME" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo ''  >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	if [ "$AVAILABLE" -eq "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update complete." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update failed." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '	echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	echo 'rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-	
-	chmod +x /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+	echo "Installing update script"
+	script_install_update_script
 	
 	touch $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'tmpfs_enable='"$TMPFS_ENABLE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
@@ -1115,15 +1176,15 @@ case "$1" in
 		echo -e "${GREEN}start ${RED}- ${GREEN}Start the server${NC}"
 		echo -e "${GREEN}stop ${RED}- ${GREEN}Stop the server${NC}"
 		echo -e "${GREEN}restart ${RED}- ${GREEN}Restart the server${NC}"
-		echo -e "${GREEN}save ${RED}- ${GREEN}Issue the save command to the server${NC}"
 		echo -e "${GREEN}sync ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd${NC}"
 		echo -e "${GREEN}backup ${RED}- ${GREEN}Backup files, if server running or not.${NC}"
 		echo -e "${GREEN}autobackup ${RED}- ${GREEN}Automaticly backup files when server running${NC}"
 		echo -e "${GREEN}deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
 		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
 		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
-		echo -e "${GREEN}reinstall_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
-		echo -e "${GREEN}reinstall_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
+		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
+		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
+		echo -e "${GREEN}rebuild_update_script ${RED}- ${GREEN}Reinstalls the update script that keeps the primary script up-to-date from github.${NC}"
 		echo -e "${GREEN}update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it.${NC}"
 		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server${NC}"
 		echo -e "${GREEN}install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game.${NC}"
@@ -1144,9 +1205,6 @@ case "$1" in
 		;;
 	-restart)
 		script_restart
-		;;
-	-save)
-		script_save
 		;;
 	-sync)
 		script_sync
@@ -1178,11 +1236,14 @@ case "$1" in
 	-send_crash_email)
 		script_send_crash_email
 		;;
-	-reinstall_services)
+	-rebuild_services)
 		script_install_services
 		;;
-	-reinstall_prefix)
-		script_reinstall_prefix
+	-rebuild_prefix)
+		script_install_prefix
+		;;
+	-rebuild_update_script)
+		script_install_update_script
 		;;
 	-timer_one)
 		script_timer_one
@@ -1196,7 +1257,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|ssk_check|ssk_check_email|reinstall_services|reinstall_prefix|update|status|install \"server command\"}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
 	exit 1
 	;;
 esac
