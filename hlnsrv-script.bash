@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201908182246"
+export VERSION="201908211050"
 
 #Basics
 export NAME="HlnSrv" #Name of the screen
@@ -86,10 +86,11 @@ script_logs() {
 		mkdir -p $LOG_DIR
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
-	# Delete old logs
-	find $LOG_DIR -mtime $LOG_DELOLD -exec rm {} \;
-	# Delete empty folders
-	find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
+	#Delete old logs
+	find $LOG_DIR/* -mtime $LOG_DELOLD -exec rm {} \;
+	#Delete empty folders
+	#find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
+	find $BCKP_DIR/ -type d -empty -delete
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs complete." | tee -a "$LOG_SCRIPT"
 }
 
