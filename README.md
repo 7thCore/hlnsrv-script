@@ -71,4 +71,6 @@ That should be it.
 
 **Known issues are:**
 
+-wine version 4.12 and 4.13 are fubar. Use 4.11
+
 -if for some reason systemd reports the service failed when it stops, don't worry about it, the server session shuts down gracefully.
