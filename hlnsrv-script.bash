@@ -877,7 +877,7 @@ script_install() {
 		TMPFS_ENABLE="1"
 		read -p "Do you already have a ramdisk mounted at /mnt/tmpfs? (y/n): " TMPFS_PRESENT
 		if [[ "$TMPFS_PRESENT" =~ ^([nN][oO]|[nN])$ ]]; then
-			read -p "Ramdisk size (Minimum of 6GB for a single server, 12GB for two and so on): " TMPFS_SIZE
+			read -p "Ramdisk size (Minimum of 6G for a single server, 12G for two and so on): " TMPFS_SIZE
 			echo "Installing ramdisk configuration"
 			cat >> /etc/fstab <<- EOF
 			
