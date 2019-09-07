@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201908211146"
+export VERSION="201909080127"
 
 #Basics
 export NAME="HlnSrv" #Name of the screen
@@ -47,13 +47,18 @@ WINE_PREFIX_GAME_CONFIG="drive_c/Games/Hellion" #Server save and configuration l
 TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
 TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
 
-#TmpFs/hdd variables
-if [[ "$TMPFS_ENABLE" == "1" ]]; then
-	BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
-	SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
-elif [[ "$TMPFS_ENABLE" == "0" ]]; then
+if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+	#TmpFs/hdd variables
+	#TmpFs/hdd variables
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
+		SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
+	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
+		BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
+		SERVICE="$SERVICE_NAME.service" #Hdd/ssd service file name
+	fi
+else
 	BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
-	SERVICE="$SERVICE_NAME.service" #Hdd/ssd service file name
 fi
 
 #Backup configuration
