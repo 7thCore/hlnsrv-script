@@ -47,7 +47,7 @@ WINE_PREFIX_GAME_CONFIG="drive_c/Games/Hellion" #Server save and configuration l
 TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
 TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
 
-if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+if [ "$EUID" -ne "0" ]; then #Check if script executed as root and assign the backup source dir.
 	#TmpFs/hdd variables
 	#TmpFs/hdd variables
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
