@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201909101920"
+export VERSION="201909131315"
 
 #Basics
 export NAME="HlnSrv" #Name of the screen
@@ -490,7 +490,8 @@ script_install_services() {
 		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
 		[Unit]
-		Description=$NAME TmpFs Server Service 
+		Description=$NAME TmpFs Server Service
+		Requires=$SERVICE_NAME-mkdir-tmpfs.service
 		After=network.target home-$USER-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
 		Conflicts=$SERVICE_NAME.service
 		StartLimitBurst=3
@@ -504,9 +505,9 @@ script_install_services() {
 		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
 		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
 		ExecStop=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
-		ExecStop=/bin/sleep 20
+		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
-		ExecStop=/bin/sleep 10
+		ExecStop=/usr/bin/sleep 10
 		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
@@ -532,9 +533,9 @@ script_install_services() {
 		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR/Build/
 		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
 		ExecStop=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
-		ExecStop=/bin/sleep 20
+		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR /usr/bin/wineserver -k
-		ExecStop=/bin/sleep 10
+		ExecStop=/usr/bin/sleep 10
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
 		RestartSec=10
