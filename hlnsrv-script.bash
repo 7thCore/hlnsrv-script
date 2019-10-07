@@ -557,11 +557,7 @@ script_install_services() {
 		INSTALL_SYSTEMD_SERVICES_STATE="1"
 	fi
 	
-	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service
-		fi
-		
+	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then		
 		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service
 		fi
@@ -601,20 +597,6 @@ script_install_services() {
 		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service" ]; then
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service
 		fi
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service <<- EOF
-		[Unit]
-		Description=$NAME Fifo pipe creator
-		Before=$SERVICE_NAME.service $SERVICE_NAME-tmpfs.service
-		
-		[Service]
-		Type=oneshot
-		WorkingDirectory=/home/$USER/
-		ExecStart=/usr/bin/mkfifo $LOG_TMP
-		
-		[Install]
-		WantedBy=default.target
-		EOF
 		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
 		[Unit]
