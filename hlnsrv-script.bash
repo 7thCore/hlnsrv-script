@@ -2,10 +2,10 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201909252236"
+export VERSION="201910072353"
 
 #Basics
-export NAME="HlnSrv" #Name of the screen
+export NAME="HlnSrv" #Name of the tmux session
 if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
 	USER="$(whoami)"
 else
@@ -15,7 +15,7 @@ else
 fi
 
 #Server configuration
-SERVICE_NAME="isrsrv" #Name of the service files, script and script log
+SERVICE_NAME="hlnsrv" #Name of the service files, script and script log
 SRV_DIR="/home/$USER/server" #Location of the server located on your hdd/ssd
 SCRIPT_NAME="$SERVICE_NAME-script.bash" #Script name
 SCRIPT_DIR="/home/$USER/scripts" #Location of this script
@@ -39,6 +39,7 @@ fi
 APPID="598850"
 
 #Wine configuration
+WINE_ARCH="win64"
 WINE_PREFIX_GAME_DIR="drive_c/Games/Hellion" #Server executable directory
 WINE_PREFIX_GAME_EXE="HELLION_Dedicated.exe" #Server executable
 WINE_PREFIX_GAME_CONFIG="drive_c/Games/Hellion" #Server save and configuration location
@@ -47,13 +48,18 @@ WINE_PREFIX_GAME_CONFIG="drive_c/Games/Hellion" #Server save and configuration l
 TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
 TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
 
-#TmpFs/hdd variables
-if [[ "$TMPFS_ENABLE" == "1" ]]; then
-	BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
-	SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
+if [ "$EUID" -ne "0" ]; then #Check if script executed as root and assign the backup source dir.
+	#TmpFs/hdd variables
+	#TmpFs/hdd variables
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
+		SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
+	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
+		BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
+		SERVICE="$SERVICE_NAME.service" #Hdd/ssd service file name
+	fi
 else
 	BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
-	SERVICE="$SERVICE_NAME.service" #Hdd/ssd service file name
 fi
 
 #Backup configuration
@@ -65,7 +71,7 @@ BCKP_DELOLD="+3" #Delete old backups. Ex +3 deletes 3 days old backups.
 #Log configuration
 export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
-export LOG_TMP="/tmp/$USER-$SERVICE_NAME-screen.log"
+export LOG_TMP="/tmp/$USER-$SERVICE_NAME-tmux.log"
 LOG_DELOLD="+7" #Delete old logs. Ex +14 deletes 14 days old logs.
 
 TIMEOUT=120
@@ -418,6 +424,124 @@ script_update() {
 	fi
 }
 
+#Install or reinstall tmux configuration
+script_install_tmux_config() {
+	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+		read -p "Are you sure you want to reinstall the tmux configuration? (y/n): " REINSTALL_SYSTEMD_SERVICES
+		if [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			INSTALL_TMUX_CONFIG_STATE="1"
+		elif [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation aborted." | tee -a "$LOG_SCRIPT"
+			INSTALL_TMUX_CONFIG_STATE="0"
+		fi
+	else
+		INSTALL_TMUX_CONFIG_STATE="1"
+	fi
+	
+	if [[ "$INSTALL_TMUX_CONFIG_STATE" == "1" ]]; then
+		if [ -f "$SCRIPT_DIR/$SERVICE_NAME-tmux.conf" ]; then
+			rm $SCRIPT_DIR/$SERVICE_NAME-tmux.conf
+		fi
+		
+		cat > $SCRIPT_DIR/$SERVICE_NAME-tmux.conf <<- EOF
+		#Tmux configuration
+		set -g activity-action other
+		set -g allow-rename off
+		set -g assume-paste-time 1
+		set -g base-index 0
+		set -g bell-action any
+		set -g default-command "${SHELL}"
+		set -g default-terminal "tmux-256color" 
+		set -g default-shell "/bin/bash"
+		set -g default-size "132x42"
+		set -g destroy-unattached off
+		set -g detach-on-destroy on
+		set -g display-panes-active-colour red
+		set -g display-panes-colour blue
+		set -g display-panes-time 1000
+		set -g display-time 3000
+		set -g history-limit 10000
+		set -g key-table "root"
+		set -g lock-after-time 0
+		set -g lock-command "lock -np"
+		set -g message-command-style fg=yellow,bg=black
+		set -g message-style fg=black,bg=yellow
+		set -g mouse on
+		#set -g prefix C-b
+		set -g prefix2 None
+		set -g renumber-windows off
+		set -g repeat-time 500
+		set -g set-titles off
+		set -g set-titles-string "#S:#I:#W - \"#T\" #{session_alerts}"
+		set -g silence-action other
+		set -g status on
+		set -g status-bg green
+		set -g status-fg black
+		set -g status-format[0] "#[align=left range=left #{status-left-style}]#{T;=/#{status-left-length}:status-left}#[norange default]#[list=on align=#{status-justify}]#[list=left-marker]<#[list=right-marker]>#[list=on]#{W:#[range=window|#{window_index} #{window-status-style}#{?#{&&:#{window_last_flag},#{!=:#{window-status-last-style},default}}, #{window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{window-status-bell-style},default}}, #{window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{window-status-activity-style},default}}, #{window-status-activity-style},}}]#{T:window-status-format}#[norange default]#{?window_end_flag,,#{window-status-separator}},#[range=window|#{window_index} list=focus #{?#{!=:#{window-status-current-style},default},#{window-status-current-style},#{window-status-style}}#{?#{&&:#{window_last_flag},#{!=:#{window-status-last-style},default}}, #{window-status-last-style},}#{?#{&&:#{window_bell_flag},#{!=:#{window-status-bell-style},default}}, #{window-status-bell-style},#{?#{&&:#{||:#{window_activity_flag},#{window_silence_flag}},#{!=:#{window-status-activity-style},default}}, #{window-status-activity-style},}}]#{T:window-status-current-format}#[norange list=on default]#{?window_end_flag,,#{window-status-separator}}}#[nolist align=right range=right #{status-right-style}]#{T;=/#{status-right-length}:status-right}#[norange default]"
+		set -g status-format[1] "#[align=centre]#{P:#{?pane_active,#[reverse],}#{pane_index}[#{pane_width}x#{pane_height}]#[default] }"
+		set -g status-interval 15
+		set -g status-justify left
+		set -g status-keys emacs
+		set -g status-left "[#S] "
+		set -g status-left-length 10
+		set -g status-left-style default
+		set -g status-position bottom
+		set -g status-right "#{?window_bigger,[#{window_offset_x}#,#{window_offset_y}] ,}\"#{=21:pane_title}\" %H:%M %d-%b-%y"
+		set -g status-right-length 40
+		set -g status-right-style default
+		set -g status-style fg=black,bg=green
+		set -g update-environment[0] "DISPLAY"
+		set -g update-environment[1] "KRB5CCNAME"
+		set -g update-environment[2] "SSH_ASKPASS"
+		set -g update-environment[3] "SSH_AUTH_SOCK"
+		set -g update-environment[4] "SSH_AGENT_PID"
+		set -g update-environment[5] "SSH_CONNECTION"
+		set -g update-environment[6] "WINDOWID"
+		set -g update-environment[7] "XAUTHORITY"
+		set -g visual-activity off
+		set -g visual-bell off
+		set -g visual-silence off
+		set -g word-separators " -_@"
+
+		#Change prefix key from ctrl+b to ctrl+a
+		unbind C-b
+		set -g prefix C-a
+		bind C-a send-prefix
+
+		#Bind C-a r to reload the config file
+		bind-key r source-file $SCRIPT_DIR/$SERVICE_NAME-tmux.conf \; display-message "Config reloaded!"
+
+		set-hook -g session-created 'resize-window -y 24 -x 10000'
+		set-hook -g session-created "pipe-pane -o 'tee >> $LOG_TMP'"
+		set-hook -g client-attached 'rename-window IsRSrv-Console'
+		set-hook -g client-attached 'resize-window -y 24 -x 10000'
+		set-hook -g client-detached 'resize-window -y 24 -x 10000'
+		set-hook -g client-resized 'resize-window -y 24 -x 10000'
+
+		#Default key bindings (only here for info)
+		#Ctrl-b l (Move to the previously selected window)
+		#Ctrl-b w (List all windows / window numbers)
+		#Ctrl-b <window number> (Move to the specified window number, the default bindings are from 0 – 9)
+		#Ctrl-b q  (Show pane numbers, when the numbers show up type the key to goto that pane)
+
+		#Ctrl-b f <window name> (Search for window name)
+		#Ctrl-b w (Select from interactive list of windows)
+
+		#Copy/ scroll mode
+		#Ctrl-b [ (in copy mode you can navigate the buffer including scrolling the history. Use vi or emacs-style key bindings in copy mode. The default is emacs. To exit copy mode use one of the following keybindings: vi q emacs Esc)
+		EOF
+			
+
+	fi
+	
+	if [ "$EUID" -ne "0" ]; then
+		if [[ "$INSTALL_TMUX_CONFIG_STATE" == "1" ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation complete. Restart your server for changes to take affect." | tee -a "$LOG_SCRIPT"
+		fi
+	fi
+}
+
 #Install or reinstall systemd services
 script_install_services() {
 	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
@@ -434,6 +558,10 @@ script_install_services() {
 	fi
 	
 	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service
+		fi
+		
 		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service
 		fi
@@ -473,7 +601,21 @@ script_install_services() {
 		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service" ]; then
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service
 		fi
-			
+		
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-fifo-pipe.service <<- EOF
+		[Unit]
+		Description=$NAME Fifo pipe creator
+		Before=$SERVICE_NAME.service $SERVICE_NAME-tmpfs.service
+		
+		[Service]
+		Type=oneshot
+		WorkingDirectory=/home/$USER/
+		ExecStart=/usr/bin/mkfifo $LOG_TMP
+		
+		[Install]
+		WantedBy=default.target
+		EOF
+		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
 		[Unit]
 		Description=$NAME TmpFs dir creator
@@ -490,8 +632,7 @@ script_install_services() {
 		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
 		[Unit]
-		Description=$NAME TmpFs Server Service
-		Requires=$SERVICE_NAME-mkdir-tmpfs.service
+		Description=$NAME TmpFs Server Service 
 		After=network.target home-$USER-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
 		Conflicts=$SERVICE_NAME.service
 		StartLimitBurst=3
@@ -501,14 +642,15 @@ script_install_services() {
 		
 		[Service]
 		Type=forking
-		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build/
+		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR
 		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
-		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-		ExecStop=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
+		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE
+		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
 		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
+		ExecStop=/usr/bin/rm $LOG_TMP
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
 		RestartSec=10
@@ -530,12 +672,13 @@ script_install_services() {
 		
 		[Service]
 		Type=forking
-		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR/Build/
-		ExecStart=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
-		ExecStop=/bin/bash -c 'screen -c $SCRIPT_DIR/$SERVICE_NAME-screen.conf -d -m -S $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
+		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR
+		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE
+		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
+		ExecStop=/usr/bin/rm $LOG_TMP
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
 		RestartSec=10
@@ -672,7 +815,6 @@ script_install_prefix() {
 			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
 			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2012
 			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet472
-			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks sound=disabled
 			pkill -f Xvfb
 			if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
@@ -704,79 +846,79 @@ script_install_update_script() {
 	fi
 	
 	if [[ "$INSTALL_UPDATE_SCRIPT_STATE" == "1" ]]; then
-		if [ -f "/$SCRIPT_DIR/$SERVICE_NAME-update.bash" ]; then
-			rm /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		if [ -f "$SCRIPT_DIR/$SERVICE_NAME-update.bash" ]; then
+			rm $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		fi
 		
-		echo '#!/bin/bash' > /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'SERVICE_NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 SERVICE_NAME | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'LOG_DIR="/home/'"$USER"'/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'script_update() {' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	if [ "$AVAILABLE" -gt "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo ''  >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		if [ "$AVAILABLE" -eq "$INSTALLED" ]; then' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update complete." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update failed." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	else' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	fi' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo "}" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'script_update_force() {' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo "}" >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'case "$1" in' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	-help)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo -e "${CYAN}$NAME server script by 7thCore${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo -e "${LIGHTRED}The script updates the primary server script from github.${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo -e "${GREEN}update ${RED}- ${GREEN}Check for script updates and update if available${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		echo -e "${GREEN}force_update ${RED}- ${GREEN}Download latest script version and install it no matter if the installed script is the same version${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	-update)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		script_update' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	-force_update)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		script_force_update' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '		;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	*)' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo -e "${CYAN}$NAME update script for server script by 7thCore${NC}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo "For more detailed information, execute the script with the -help argument"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo ""' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	echo "Usage: $0 {update|force_update}"' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	exit 1' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo '	;;' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'esac' >> /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '#!/bin/bash' > $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 NAME | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'SERVICE_NAME=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 SERVICE_NAME | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'LOG_DIR="/home/'"$USER"'/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'script_update() {' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	if [ "$AVAILABLE" -gt "$INSTALLED" ]; then' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo ''  >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		INSTALLED=$(cat '"$SCRIPT_DIR/$SCRIPT_NAME"' | grep -m 1 VERSION | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		AVAILABLE=$(cat /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash | grep -m 1 VERSION | cut -d \" -f2)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		if [ "$AVAILABLE" -eq "$INSTALLED" ]; then' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update complete." | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		else' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '			echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Script update failed." | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		fi' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	else' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo "$(date +"%Y-%m-%d %H:%M:%S") [$INSTALLED] [$NAME] [INFO] (Script update) Installed:$INSTALLED, Available:$AVAILABLE" | tee -a $LOG_SCRIPT' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	fi' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo "}" >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'script_update_force() {' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	chmod +x /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo "}" >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'case "$1" in' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-help)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${CYAN}$NAME server script by 7thCore${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo ""' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${LIGHTRED}The script updates the primary server script from github.${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo ""' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${GREEN}update ${RED}- ${GREEN}Check for script updates and update if available${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		echo -e "${GREEN}force_update ${RED}- ${GREEN}Download latest script version and install it no matter if the installed script is the same version${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-update)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		script_update' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	-force_update)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		script_force_update' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '		;;' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	*)' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo -e "${CYAN}$NAME update script for server script by 7thCore${NC}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo ""' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo "For more detailed information, execute the script with the -help argument"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo ""' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	echo "Usage: $0 {update|force_update}"' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	exit 1' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo '	;;' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'esac' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		
-		chmod +x /$SCRIPT_DIR/$SERVICE_NAME-update.bash
+		chmod +x $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		if [ "$EUID" -ne "0" ]; then
 			if [[ "$INSTALL_UPDATE_SCRIPT_STATE" == "1" ]]; then
 				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall update script) Update script reinstallation complete." | tee -a "$LOG_SCRIPT"
@@ -831,7 +973,7 @@ script_install() {
 	echo "xvfb"
 	echo "wine"
 	echo "winetricks"
-	echo "screen"
+	echo "tmux"
 	echo "steamcmd"
 	echo "postfix (optional/for the email feature)"
 	echo "zip (optional but required if using the email feature)"
@@ -859,7 +1001,7 @@ script_install() {
 	echo "$SCRIPT_DIR/$SERVICE_NAME-script.bash - This script."
 	echo "$SCRIPT_DIR/$SERVICE_NAME-update.bash - Update script for automatic updates from github."
 	echo "$SCRIPT_DIR/$SERVICE_NAME-config.conf - Stores steam username and password. Also stores tmpfs/ramdisk setting."
-	echo "$SCRIPT_DIR/$SERVICE_NAME-screen.conf - Screen configuration to enable logging."
+	echo "$SCRIPT_DIR/$SERVICE_NAME-tmux.conf - Screen configuration to enable logging."
 	echo "$UPDATE_DIR/installed.buildid - Information on installed buildid (AppInfo from Steamcmd)"
 	echo "$UPDATE_DIR/available.buildid - Information on available buildid (AppInfo from Steamcmd)"
 	echo "$UPDATE_DIR/installed.timeupdated - Information on time the server was last updated (AppInfo from Steamcmd)"
@@ -968,10 +1110,12 @@ script_install() {
 	export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
 	EOF
 	
+	sudo chown $USER:users /home/$USER/.bash_profile
+	
 	echo "Installing service files"
 	script_install_services
 	
-	sudo chown -R $USER:users /home/$USER
+	sudo chown -R $USER:users /home/$USER/.config/systemd/user
 	
 	echo "Enabling services"
 		
@@ -996,107 +1140,8 @@ script_install() {
 	cp "$(readlink -f $0)" $SCRIPT_DIR
 	chmod +x $SCRIPT_DIR/$SCRIPT_NAME
 	
-	echo "Installing screen configuration for server console and logs"
-	cat > $SCRIPT_DIR/$SERVICE_NAME-screen.conf <<- EOF
-	#
-	# This is an example for the global screenrc file.
-	# You may want to install this file as /usr/local/etc/screenrc.
-	# Check config.h for the exact location.
-	#
-	# Flaws of termcap and standard settings are done here.
-	#
-	
-	#startup_message off
-	
-	#defflow on # will force screen to process ^S/^Q
-	
-	deflogin on
-	#autodetach off
-	
-	vbell on
-	vbell_msg "   Wuff  ----  Wuff!!  "
-	
-	# all termcap entries are now duplicated as terminfo entries.
-	# only difference should be the slightly modified syntax, and check for
-	# terminfo entries, that are already corected in the database.
-	# 
-	# G0 	we have a SEMI-GRAPHICS-CHARACTER-MODE
-	# WS	this sequence resizes our window.
-	# cs    this sequence changes the scrollregion
-	# hs@	we have no hardware statusline. screen will only believe that
-	#       there is a hardware status line if hs,ts,fs,ds are all set.
-	# ts    to statusline
-	# fs    from statusline
-	# ds    delete statusline
-	# al    add one line
-	# AL    add multiple lines
-	# dl    delete one line
-	# DL    delete multiple lines
-	# ic    insert one char (space)
-	# IC    insert multiple chars
-	# nx    terminal uses xon/xoff
-	
-	termcap  facit|vt100|xterm LP:G0
-	terminfo facit|vt100|xterm LP:G0
-	
-	#the vt100 description does not mention "dl". *sigh*
-	termcap  vt100 dl=5\E[M
-	terminfo vt100 dl=5\E[M
-	
-	#facit's "al" / "dl"  are buggy if the current / last line
-	#contain attributes...
-	termcap  facit al=\E[L\E[K:AL@:dl@:DL@:cs=\E[%i%d;%dr:ic@
-	terminfo facit al=\E[L\E[K:AL@:dl@:DL@:cs=\E[%i%p1%d;%p2%dr:ic@
-	
-	#make sun termcap/info better
-	termcap  sun 'up=^K:AL=\E[%dL:DL=\E[%dM:UP=\E[%dA:DO=\E[%dB:LE=\E[%dD:RI=\E[%dC:IC=\E[%d@:WS=1000\E[8;%d;%dt'
-	terminfo sun 'up=^K:AL=\E[%p1%dL:DL=\E[%p1%dM:UP=\E[%p1%dA:DO=\E[%p1%dB:LE=\E[%p1%dD:RI=\E[%p1%dC:IC=\E[%p1%d@:WS=\E[8;%p1%d;%p2%dt$<1000>'
-	
-	#xterm understands both im/ic and doesn't have a status line.
-	#Note: Do not specify im and ic in the real termcap/info file as
-	#some programs (e.g. vi) will (no,no, may (jw)) not work anymore.
-	termcap  xterm|fptwist hs@:cs=\E[%i%d;%dr:im=\E[4h:ei=\E[4l
-	terminfo xterm|fptwist hs@:cs=\E[%i%p1%d;%p2%dr:im=\E[4h:ei=\E[4l
-	
-	# Long time I had this in my private screenrc file. But many people
-	# seem to want it (jw):
-	# we do not want the width to change to 80 characters on startup:
-	# on suns, /etc/termcap has :is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;3;4;6l:
-	termcap xterm 'is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;4;6l'
-	terminfo xterm 'is=\E[r\E[m\E[2J\E[H\E[?7h\E[?1;4;6l'
-	
-	#
-	# Do not use xterms alternate window buffer. 
-	# This one would not add lines to the scrollback buffer.
-	termcap xterm|xterms|xs ti=\E7\E[?47l
-	terminfo xterm|xterms|xs ti=\E7\E[?47l
-	
-	#make hp700 termcap/info better
-	termcap  hp700 'Z0=\E[?3h:Z1=\E[?3l:hs:ts=\E[62"p\E[0$~\E[2$~\E[1$}:fs=\E[0}\E[61"p:ds=\E[62"p\E[1$~\E[61"p:ic@'
-	terminfo hp700 'Z0=\E[?3h:Z1=\E[?3l:hs:ts=\E[62"p\E[0$~\E[2$~\E[1$}:fs=\E[0}\E[61"p:ds=\E[62"p\E[1$~\E[61"p:ic@'
-	
-	#wyse-75-42 must have defflow control (xo = "terminal uses xon/xoff")
-	#(nowadays: nx = padding doesn't work, have to use xon/off)
-	#essential to have it here, as this is a slow terminal.
-	termcap wy75-42 nx:xo:Z0=\E[?3h\E[31h:Z1=\E[?3l\E[31h
-	terminfo wy75-42 nx:xo:Z0=\E[?3h\E[31h:Z1=\E[?3l\E[31h
-	
-	#remove some stupid / dangerous key bindings
-	bind ^k
-	#bind L
-	bind ^\
-	#make them better
-	bind \\ quit
-	bind K kill
-	bind I login on
-	bind O login off
-	bind } history
-	
-	scrollback 1000
-	logfile $LOG_TMP
-	logfile flush 0
-	deflog on
-	EOF
+	echo "Installing tmux configuration for server console and logs"
+	script_install_tmux_config
 	
 	echo "Installing update script"
 	script_install_update_script
@@ -1110,7 +1155,7 @@ script_install() {
 	echo 'email_update='"$POSTFIX_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_crash='"$POSTFIX_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	
-	sudo chown -R $USER:users /home/$USER
+	sudo chown -R $USER:users /home/$USER/{backups,logs,scripts,server,updates}
 	
 	echo "Generating wine prefix"
 	
@@ -1150,17 +1195,14 @@ script_install() {
 		
 		su - $USER -c "steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta $BETA_BRANCH_NAME validate +quit"
 	fi
-
-	if [ ! -d $BCKP_SRC_DIR ]; then
-		mkdir -p $BCKP_SRC_DIR
-	fi
-
-	chown -R $USER:users /home/$USER
+	
+	mkdir -p $BCKP_SRC_DIR
+	chown -R $USER:users $BCKP_SRC_DIR
 	
 	
 	echo "Installation complete"
 	echo ""
-	echo "You can login to your $USER account with <sudo -i -u $USER> from your primary account or root account."
+	echo "You can login to your the $USER account with <sudo -i -u $USER> from your primary account or root account."
 	echo "The script was automaticly copied to the scripts folder located at $SCRIPT_DIR"
 	echo "For any settings you'll want to change, edit the $SCRIPT_DIR/$SERVICE_NAME-config.conf file."
 	echo ""
@@ -1187,6 +1229,7 @@ case "$1" in
 		echo -e "${GREEN}deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
 		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
 		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
+		echo -e "${GREEN}rebuild_tmux_config ${RED}- ${GREEN}Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_update_script ${RED}- ${GREEN}Reinstalls the update script that keeps the primary script up-to-date from github.${NC}"
@@ -1241,6 +1284,9 @@ case "$1" in
 	-send_crash_email)
 		script_send_crash_email
 		;;
+	-rebuild_tmux_config)
+		script_install_tmux_config
+		;;
 	-rebuild_services)
 		script_install_services
 		;;
@@ -1262,7 +1308,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
 	exit 1
 	;;
 esac
