@@ -5,7 +5,7 @@ Bash script for running Hellion on a linux server
 
 -xvfb
 
--screen
+-tmux
 
 -wine
 
