@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201910080040"
+export VERSION="201910080102"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -514,7 +514,6 @@ script_install_tmux_config() {
 
 		set-hook -g session-created 'resize-window -y 24 -x 10000'
 		set-hook -g session-created "pipe-pane -o 'tee >> $LOG_TMP'"
-		set-hook -g client-attached 'rename-window IsRSrv-Console'
 		set-hook -g client-attached 'resize-window -y 24 -x 10000'
 		set-hook -g client-detached 'resize-window -y 24 -x 10000'
 		set-hook -g client-resized 'resize-window -y 24 -x 10000'
@@ -601,7 +600,7 @@ script_install_services() {
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
 		[Unit]
 		Description=$NAME TmpFs dir creator
-		After=home-$USER-tmpfs.mount
+		After=mnt-tmpfs.mount
 		
 		[Service]
 		Type=oneshot
@@ -615,7 +614,7 @@ script_install_services() {
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
 		[Unit]
 		Description=$NAME TmpFs Server Service 
-		After=network.target home-$USER-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
+		After=network.target mnt-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
 		Conflicts=$SERVICE_NAME.service
 		StartLimitBurst=3
 		StartLimitIntervalSec=300
