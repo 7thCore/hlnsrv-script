@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201910080102"
+export VERSION="201911041228"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -10,7 +10,7 @@ if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the use
 	USER="$(whoami)"
 else
 	echo "WARNING: Installation mode"
-	read -p "Please enter username (default hellion):" USER #Enter desired username that will be used when creating the new user
+	read -p "Please enter username (leave empty for hellion):" USER #Enter desired username that will be used when creating the new user
 	USER=${USER:=hellion} #If no username was given, use default
 fi
 
@@ -31,6 +31,18 @@ if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
 	EMAIL_RECIPIENT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_recipient | cut -d = -f2) #Send emails to this address
 	EMAIL_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update | cut -d = -f2) #Send emails when server updates
 	EMAIL_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_crash | cut -d = -f2) #Send emails when the server crashes
+	
+	#Ramdisk configuration
+	TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
+	
+	#Save game configuration
+	SAVE_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep save_delold | cut -d = -f2) #How many latest save files should the script leave when deleting them.
+	
+	#Backup configuration
+	BCKP_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep bckp_delold | cut -d = -f2) #Delete old backups.
+	
+	#Log configuration
+	LOG_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep log_delold | cut -d = -f2) #Delete old logs.
 else
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Configuration) The configuration is missing. Did you execute script installation?"
 fi
@@ -50,7 +62,6 @@ TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
 
 if [ "$EUID" -ne "0" ]; then #Check if script executed as root and assign the backup source dir.
 	#TmpFs/hdd variables
-	#TmpFs/hdd variables
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
 		BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
 		SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
@@ -66,13 +77,11 @@ fi
 BCKP_SRC="*" #What files to backup, * for all
 BCKP_DIR="/home/$USER/backups" #Location of stored backups
 BCKP_DEST="$BCKP_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #How backups are sorted, by default it's sorted in folders by month and day
-BCKP_DELOLD="+3" #Delete old backups. Ex +3 deletes 3 days old backups.
 
 #Log configuration
 export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
 export LOG_TMP="/tmp/$USER-$SERVICE_NAME-tmux.log"
-LOG_DELOLD="+7" #Delete old logs. Ex +14 deletes 14 days old logs.
 
 TIMEOUT=120
 
@@ -93,7 +102,7 @@ script_logs() {
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	#Delete old logs
-	find $LOG_DIR/* -mtime $LOG_DELOLD -exec rm {} \;
+	find $LOG_DIR/* -mtime +$LOG_DELOLD -exec rm {} \;
 	#Delete empty folders
 	#find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
 	find $BCKP_DIR/ -type d -empty -delete
@@ -211,11 +220,24 @@ script_restart() {
 	fi
 }
 
+#Deletes old save games
+script_deloldsavefiles() {
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files: leave latest $SAVE_DELOLD save files." | tee -a "$LOG_SCRIPT"
+	#Check if running on tmpfs and delete saves
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		cd "$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
+		find $TMPFS_DIR/drive_c/Games/Hellion/*.save -type f -printf '%T@\t%p\n' | sort -t $'\t' -g |  head -n -$SAVE_DELOLD | cut -d $'\t' -f 2- | xargs rm
+	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
+		find $SRV_DIR/drive_c/Games/Hellion*.save -type f -printf '%T@\t%p\n' | sort -t $'\t' -g |  head -n -$SAVE_DELOLD | cut -d $'\t' -f 2- | xargs rm
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files complete." | tee -a "$LOG_SCRIPT"
+}
+
 #Deletes old backups
 script_deloldbackup() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups: $BCKP_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	# Delete old backups
-	find $BCKP_DIR/* -type f -mtime $BCKP_DELOLD -exec rm {} \;
+	find $BCKP_DIR/* -type f -mtime +$BCKP_DELOLD -exec rm {} \;
 	# Delete empty folders
 	#find $BCKP_DIR/ -type d 2> /dev/null -empty -exec rm -rf {} \;
 	find $BCKP_DIR/ -type d -empty -delete
@@ -922,6 +944,7 @@ script_timer_one() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
 		script_enabled
 		script_logs
+		script_deloldsavefiles
 		script_sync
 		script_autobackup
 		script_update
@@ -942,6 +965,7 @@ script_timer_two() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
 		script_enabled
 		script_logs
+		script_deloldsavefiles
 		script_sync
 		script_update
 	fi
@@ -1135,6 +1159,10 @@ script_install() {
 	echo 'email_recipient='"$POSTFIX_RECIPIENT" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_update='"$POSTFIX_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_crash='"$POSTFIX_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'save_delold=10' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'bckp_delold=14' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'log_delold=7' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	
 	
 	sudo chown -R $USER:users /home/$USER/{backups,logs,scripts,server,updates}
 	
@@ -1209,6 +1237,7 @@ case "$1" in
 		echo -e "${GREEN}autobackup ${RED}- ${GREEN}Automaticly backup files when server running${NC}"
 		echo -e "${GREEN}deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
 		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
+		echo -e "${GREEN}deloldsavefiles ${RED}- ${GREEN}Delete the server's save game (leaves the latest number files specefied in the script conf file.${NC}"
 		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
 		echo -e "${GREEN}rebuild_tmux_config ${RED}- ${GREEN}Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
@@ -1246,6 +1275,9 @@ case "$1" in
 		;;
 	-deloldbackup)
 		script_deloldbackup
+		;;
+	-deloldsavefiles)
+		script_deloldsavefiles
 		;;
 	-update)
 		script_update
@@ -1289,7 +1321,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|delete_save|change_branch|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
 	exit 1
 	;;
 esac
