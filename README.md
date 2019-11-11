@@ -76,7 +76,7 @@ After the installation finishes you can reboot the operating system and the serv
 
 You can also install bash aliases to make your life easier with the following command:
 
-./isrsrv-script.bash -install_aliases
+./hlnsrv-script.bash -install_aliases
 
 After that relog.
 
