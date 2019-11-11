@@ -63,11 +63,11 @@ Now for the installation.
 
 If you wish you can have the script install the required packages with (Only for Arch Linux & Ubuntu 19.10):
 
-sudo ./isrsrv-script.bash -install_packages
+sudo ./hlnsrv-script.bash -install_packages
 
 After that run the script with root permitions like so (necessary for user creation):
 
-sudo ./isrsrv-script.bash -install
+sudo ./hlnsrv-script.bash -install
 
 The script will create a new non-sudo enabled user from wich the game server will run. If you want to have multiple game servers on the same ma
 chine just run the script multiple times but with a diffrent username inputted to the script.
@@ -76,7 +76,7 @@ After the installation finishes you can reboot the operating system and the serv
 
 Any other script commands are available with:
 
-./isrsrv-script.bash -help
+./hlnsrv-script.bash -help
 
 That should be it.
 
