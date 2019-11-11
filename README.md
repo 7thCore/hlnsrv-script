@@ -74,6 +74,12 @@ chine just run the script multiple times but with a diffrent username inputted t
 
 After the installation finishes you can reboot the operating system and the service files will start the game server automaticly on boot.
 
+You can also install bash aliases to make your life easier with the following command:
+
+./isrsrv-script.bash -install_aliases
+
+After that relog.
+
 Any other script commands are available with:
 
 ./hlnsrv-script.bash -help
