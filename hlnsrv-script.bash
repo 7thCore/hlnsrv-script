@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201911041228"
+export VERSION="201911112020"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -446,14 +446,44 @@ script_update() {
 	fi
 }
 
+#Install aliases in .bashrc
+script_install_alias(){
+	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
+		read -p "Are you sure you want to reinstall the tmux configuration? (y/n): " INSTALL_BASHRC_ALIAS
+		if [[ "$INSTALL_BASHRC_ALIAS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			INSTALL_BASHRC_ALIAS_STATE="1"
+		elif [[ "$INSTALL_BASHRC_ALIAS" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc aborted." | tee -a "$LOG_SCRIPT"
+			INSTALL_BASHRC_ALIAS_STATE="0"
+		fi
+	else
+		INSTALL_BASHRC_ALIAS_STATE="1"
+	fi
+	
+	if [[ "$INSTALL_BASHRC_ALIAS_STATE" == "1" ]]; then
+		cat >> /home/$USER/.bashrc <<- EOF
+			alias $SERVICE_NAME-server='tmux -L $USER-tmux.sock attach -t $NAME'
+		EOF
+	fi
+	
+	if [ "$EUID" -ne "0" ]; then
+		if [[ "$INSTALL_BASHRC_ALIAS_STATE" == "1" ]]; then
+			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc complete. Re-log for the changes to take effect." | tee -a "$LOG_SCRIPT"
+			echo "Aliases:"
+			echo "$SERVICE_NAME-server = Attaches to the server console."
+		fi
+	fi
+}
+
 #Install or reinstall tmux configuration
 script_install_tmux_config() {
 	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
-		read -p "Are you sure you want to reinstall the tmux configuration? (y/n): " REINSTALL_SYSTEMD_SERVICES
-		if [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		read -p "Are you sure you want to reinstall the tmux configuration? (y/n): " REINSTALL_TMUX_CONFIG
+		if [[ "$REINSTALL_TMUX_CONFIG" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 			INSTALL_TMUX_CONFIG_STATE="1"
-		elif [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+		elif [[ "$REINSTALL_TMUX_CONFIG" =~ ^([nN][oO]|[nN])$ ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation aborted." | tee -a "$LOG_SCRIPT"
 			INSTALL_TMUX_CONFIG_STATE="0"
 		fi
@@ -552,8 +582,6 @@ script_install_tmux_config() {
 		#Copy/ scroll mode
 		#Ctrl-b [ (in copy mode you can navigate the buffer including scrolling the history. Use vi or emacs-style key bindings in copy mode. The default is emacs. To exit copy mode use one of the following keybindings: vi q emacs Esc)
 		EOF
-			
-
 	fi
 	
 	if [ "$EUID" -ne "0" ]; then
@@ -647,8 +675,8 @@ script_install_services() {
 		Type=forking
 		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR
 		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
-		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE
-		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown
+		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME 'env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
+		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop 'env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
@@ -971,11 +999,65 @@ script_timer_two() {
 	fi
 }
 
+script_install_packages() {
+	if [ -f "/etc/os-release" ]; then
+		#Get distro name
+		DISTRO=$(cat /etc/os-release | grep "^ID" | cut -d = -f2)
+		
+		#Check for current distro
+		if [[ "$DISTRO" == "arch" ]]; then
+			#Arch distro
+			
+			#Add arch linux multilib repository
+			echo "[multilib]" >> /mnt/etc/pacman.conf
+			echo "Include = /etc/pacman.d/mirrorlist" >> /mnt/etc/pacman.conf
+			
+			#Install packages and enable services
+			sudo pacman -Syu --noconfirm wine-staging wine-mono wine_gecko libpulse libxml2 mpg123 lcms2 giflib libpng gnutls gst-plugins-base gst-plugins-good lib32-libpulse lib32-libxml2 lib32-mpg123 lib32-lcms2 lib32-giflib lib32-libpng lib32-gnutls lib32-gst-plugins-base lib32-gst-plugins-good rsync cabextract unzip p7zip wget curl samba xorg-server-xvfb tmux postfix zip
+			sudo systemctl enable smb nmb winbind
+			sudo systemctl start smb nmb winbind
+		elif [[ "$DISTRO" == "ubuntu" ]]; then
+			#Ubuntu distro
+			
+			#Get codename
+			UBUNTU_CODENAME=$(cat /etc/os-release | grep "^UBUNTU_CODENAME" | cut -d = -f2)
+			
+			#Add wine repositroy and install packages
+			sudo dpkg --add-architecture i386
+			wget -nc https://dl.winehq.org/wine-builds/winehq.key
+			sudo apt-key add winehq.key
+			sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $UBUNTU_CODENAME main"
+			
+			#Install packages and enable services
+			sudo apt install --install-recommends winehq-staging
+			sudo apt install --install-recommends steamcmd
+			sudo apt install rsync cabextract unzip p7zip wget curl xvfb screen zip postfix samba winbind tmux
+			sudo systemctl enable smbd nmbd winbind
+			sudo systemctl start smbd nmbd winbind
+		fi
+			
+		#Install winetricks
+		wget https://raw.githubusercontent.com/Kreytricks/kreytricks/349c0afcc0b450799a812f2f8a3eb8a562465c77/src/winetricks
+		sudo mv winetricks /usr/local/bin/
+		sudo chmod +x /usr/local/bin/winetricks
+		if [[ "$DISTRO" == "arch" ]]; then
+			echo "Arch Linux users have to install SteamCMD with an AUR tool."
+		fi
+		echo "Package installation complete."
+	else
+		echo "os-release file not found. Is this distro supported?"
+		echo "This script currently supports Arch Linux and Ubuntu 19.10"
+		exit 1
+	fi
+
+}
+
 script_install() {
 	echo "Installation"
 	echo ""
 	echo "Required packages that need to be installed on the server:"
 	echo "xvfb"
+	echo "rsync"
 	echo "wine"
 	echo "winetricks"
 	echo "tmux"
@@ -1031,7 +1113,7 @@ script_install() {
 			cat >> /etc/fstab <<- EOF
 			
 			# /mnt/tmpfs
-			tmpfs				   /mnt/tmpfs		tmpfs		   rw,size=$TMPFS_SIZE,gid=users,mode=0777	0 0
+			tmpfs				   /mnt/tmpfs		tmpfs		   rw,size=$TMPFS_SIZE,gid=$(cat /etc/group | grep users | grep -o '[[:digit:]]*'),mode=0777	0 0
 			EOF
 		fi
 	fi
@@ -1042,7 +1124,7 @@ script_install() {
 	
 	if [[ "$SET_BETA_BRANCH_STATE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		BETA_BRANCH_ENABLED="1"
-		echo "Look up beta branch names at https://steamdb.info/app/363360/depots/"
+		echo "Look up beta branch names at https://steamdb.info/app/$APPID/depots/"
 		echo "Name example: experimental"
 		read -p "Enter beta branch name: " BETA_BRANCH_NAME
 	elif [[ "$SET_BETA_BRANCH_STATE" =~ ^([nN][oO]|[nN])$ ]]; then
@@ -1239,6 +1321,7 @@ case "$1" in
 		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
 		echo -e "${GREEN}deloldsavefiles ${RED}- ${GREEN}Delete the server's save game (leaves the latest number files specefied in the script conf file.${NC}"
 		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
+		echo -e "${GREEN}install_aliases ${RED}- ${GREEN}Installs .bashrc aliases for easy access to the server tmux session.${NC}"
 		echo -e "${GREEN}rebuild_tmux_config ${RED}- ${GREEN}Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
@@ -1246,6 +1329,7 @@ case "$1" in
 		echo -e "${GREEN}update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it.${NC}"
 		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server${NC}"
 		echo -e "${GREEN}install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game.${NC}"
+		echo -e "${GREEN}install_packages ${RED}- ${GREEN}Installs all the needed packages (Supports only Arch linux & Ubuntu 19.10 and onward)"
 		echo ""
 		echo -e "${LIGHTRED}If this is your first time running the script:${NC}"
 		echo -e "${LIGHTRED}Use the -install argument (run only this command as root) and follow the instructions${NC}"
@@ -1285,6 +1369,9 @@ case "$1" in
 	-status)
 		script_status
 		;;
+	-install_packages)
+		script_install_packages
+		;;
 	-install)
 		script_install
 		;;
@@ -1296,6 +1383,9 @@ case "$1" in
 		;;
 	-send_crash_email)
 		script_send_crash_email
+		;;
+	-install_aliases)
+		script_install_alias
 		;;
 	-rebuild_tmux_config)
 		script_install_tmux_config
@@ -1321,7 +1411,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|install_aliases|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install|install_packages}"
 	exit 1
 	;;
 esac
