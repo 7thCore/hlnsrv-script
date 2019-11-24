@@ -2,7 +2,7 @@
 
 #Interstellar Rift server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201911112020"
+export VERSION="201911241230"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -915,7 +915,7 @@ script_install_update_script() {
 		echo '	rm -rf /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo "}" >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
-		echo 'script_update_force() {' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
+		echo 'script_force_update() {' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '	git clone https://github.com/7thCore/'"$SERVICE_NAME"'-script /tmp/'"$SERVICE_NAME"'-script' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '	rm /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
 		echo '	cp /tmp/'"$SERVICE_NAME"'-script/'"$SERVICE_NAME"'-script.bash /home/'"$USER"'/scripts/'"$SERVICE_NAME"'-script.bash' >> $SCRIPT_DIR/$SERVICE_NAME-update.bash
