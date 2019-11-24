@@ -225,11 +225,12 @@ script_deloldsavefiles() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files: leave latest $SAVE_DELOLD save files." | tee -a "$LOG_SCRIPT"
 	#Check if running on tmpfs and delete saves
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
-		cd "$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
+		#cd "$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
 		find $TMPFS_DIR/drive_c/Games/Hellion/*.save -type f -printf '%T@\t%p\n' | sort -t $'\t' -g |  head -n -$SAVE_DELOLD | cut -d $'\t' -f 2- | xargs rm
-	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
-		find $SRV_DIR/drive_c/Games/Hellion*.save -type f -printf '%T@\t%p\n' | sort -t $'\t' -g |  head -n -$SAVE_DELOLD | cut -d $'\t' -f 2- | xargs rm
+	#elif [[ "$TMPFS_ENABLE" == "0" ]]; then
 	fi
+		find $SRV_DIR/drive_c/Games/Hellion*.save -type f -printf '%T@\t%p\n' | sort -t $'\t' -g |  head -n -$SAVE_DELOLD | cut -d $'\t' -f 2- | xargs rm
+	#fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files complete." | tee -a "$LOG_SCRIPT"
 }
 
