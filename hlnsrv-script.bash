@@ -1133,10 +1133,7 @@ script_install() {
 	echo ""
 	read -p "Enable email notifications (y/n): " POSTFIX_ENABLE
 	if [[ "$POSTFIX_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		echo ""
-		read -p "Enter the relay host (example: smtp.gmail.com): " POSTFIX_RELAY_HOST
-		echo ""
-		read -p "Enter the relay host port (example: 587): " POSTFIX_RELAY_HOST_PORT
+		read -p "Is postfix already configured? (y/n): " POSTFIX_CONFIGURED
 		echo ""
 		read -p "Enter your email address for the server (example: example@gmail.com): " POSTFIX_SENDER
 		echo ""
@@ -1153,23 +1150,30 @@ script_install() {
 			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				POSTFIX_CRASH="1"
 			fi
-		cat >> /etc/postfix/main.cf <<- EOF
-		relayhost = [$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT
-		smtp_sasl_auth_enable = yes
-		smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
-		smtp_sasl_security_options = noanonymous
-		smtp_tls_CApath = /etc/ssl/certs
-		smtpd_tls_CApath = /etc/ssl/certs
-		smtp_use_tls = yes
-		EOF
+		if [[ "$POSTFIX_CONFIGURED" =~ ^([nN][oO]|[nN])$ ]]; then
+			echo ""
+			read -p "Enter the relay host (example: smtp.gmail.com): " POSTFIX_RELAY_HOST
+			echo ""
+			read -p "Enter the relay host port (example: 587): " POSTFIX_RELAY_HOST_PORT
+			echo ""
+			cat >> /etc/postfix/main.cf <<- EOF
+			relayhost = [$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT
+			smtp_sasl_auth_enable = yes
+			smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+			smtp_sasl_security_options = noanonymous
+			smtp_tls_CApath = /etc/ssl/certs
+			smtpd_tls_CApath = /etc/ssl/certs
+			smtp_use_tls = yes
+			EOF
 
-		cat > /etc/postfix/sasl_passwd <<- EOF
-		[$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT    $POSTFIX_SENDER:$POSTFIX_SENDER_PSW
-		EOF
-	
-		sudo chmod 400 /etc/postfix/sasl_passwd
-		sudo postmap /etc/postfix/sasl_passwd
-		sudo systemctl enable postfix
+			cat > /etc/postfix/sasl_passwd <<- EOF
+			[$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT    $POSTFIX_SENDER:$POSTFIX_SENDER_PSW
+			EOF
+
+			sudo chmod 400 /etc/postfix/sasl_passwd
+			sudo postmap /etc/postfix/sasl_passwd
+			sudo systemctl enable postfix
+		fi
 	elif [[ "$POSTFIX_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
 		POSTFIX_SENDER="none"
 		POSTFIX_RECIPIENT="none"
