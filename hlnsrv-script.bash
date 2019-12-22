@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#Interstellar Rift server script by 7thCore
+#Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201911241333"
+export VERSION="201912222213"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -124,6 +124,93 @@ script_status() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is activating. Please wait." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "deactivating" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
+	fi
+}
+
+#Disable all script services
+script_disable_services() {
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-mkdir-tmpfs.service)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME-mkdir-tmpfs.service
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-tmpfs.service)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME-tmpfs.service
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME.service)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME.service
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-1.timer)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME-timer-1.timer
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-2.timer)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME-timer-2.timer
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-3.timer)" == "enabled" ]]; then
+		systemctl --user disable $SERVICE_NAME-timer-3.timer
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) Services successfully disabled." | tee -a "$LOG_SCRIPT"
+}
+
+#Disables all script services, available to the user
+script_disable_services_manual() {
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) WARNING: This will disable all script services. The server will be disabled." | tee -a "$LOG_SCRIPT"
+	read -p "Are you sure you want to disable all services? (y/n): " DISABLE_SCRIPT_SERVICES
+	if [[ "$DISABLE_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		script_disable_services
+	elif [[ "$DISABLE_SCRIPT_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) Disable services canceled." | tee -a "$LOG_SCRIPT"
+	fi
+}
+
+# Enable script services by reading the configuration file
+script_enable_services() {
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-mkdir-tmpfs.service)" == "disabled" ]]; then
+			systemctl --user enable $SERVICE_NAME-mkdir-tmpfs.service
+		fi
+		if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-tmpfs.service)" == "disabled" ]]; then
+			systemctl --user enable $SERVICE_NAME-tmpfs.service
+		fi
+	else
+		if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME.service)" == "disabled" ]]; then
+			systemctl --user enable $SERVICE_NAME.service
+		fi
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-1.timer)" == "disabled" ]]; then
+		systemctl --user enable $SERVICE_NAME-timer-1.timer
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-2.timer)" == "disabled" ]]; then
+		systemctl --user enable $SERVICE_NAME-timer-2.timer
+	fi
+	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-timer-3.timer)" == "disabled" ]]; then
+		if [[ "$SCRIPT_UPDATES_GITHUB" == "1" ]]; then
+			systemctl --user enable $SERVICE_NAME-timer-3.timer
+		fi
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) Services successfully Enabled." | tee -a "$LOG_SCRIPT"
+}
+
+# Enable script services by reading the configuration file, available to the user
+script_enable_services_manual() {
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) This will enable all script services. The server will be enabled." | tee -a "$LOG_SCRIPT"
+	read -p "Are you sure you want to disable all services? (y/n): " ENABLE_SCRIPT_SERVICES
+	if [[ "$ENABLE_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		script_enable_services
+	elif [[ "$ENABLE_SCRIPT_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) Enable services canceled." | tee -a "$LOG_SCRIPT"
+	fi
+}
+
+#Disables all script services an re-enables them by reading the configuration file
+script_reload_services() {
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reload services) This will reload all script services." | tee -a "$LOG_SCRIPT"
+	read -p "Are you sure you want to reload all services? (y/n): " RELOAD_SCRIPT_SERVICES
+	if [[ "$RELOAD_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		script_disable_services
+		systemctl --user daemon-reload
+		script_enable_services
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reload services) Reload services complete." | tee -a "$LOG_SCRIPT"
+	elif [[ "$RELOAD_SCRIPT_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reload services) Reload services canceled." | tee -a "$LOG_SCRIPT"
 	fi
 }
 
@@ -1338,6 +1425,9 @@ case "$1" in
 		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
 		echo -e "${GREEN}rebuild_update_script ${RED}- ${GREEN}Reinstalls the update script that keeps the primary script up-to-date from github.${NC}"
+		echo -e "${GREEN}disable_services ${RED}- ${GREEN}Disables all services. The server and the script will not start up on boot anymore.${NC}"
+		echo -e "${GREEN}enable_services ${RED}- ${GREEN}Enables all services dependant on the configuration file of the script.${NC}"
+		echo -e "${GREEN}reload_services ${RED}- ${GREEN}Reloads all services, dependant on the configuration file.${NC}"
 		echo -e "${GREEN}update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it.${NC}"
 		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server${NC}"
 		echo -e "${GREEN}install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game.${NC}"
@@ -1411,6 +1501,15 @@ case "$1" in
 	-rebuild_update_script)
 		script_install_update_script
 		;;
+	-disable_services)
+		script_disable_services_manual
+		;;
+	-enable_services)
+		script_enable_services_manual
+		;;
+	-reload_services)
+		script_reload_services
+		;;
 	-timer_one)
 		script_timer_one
 		;;
@@ -1423,7 +1522,7 @@ case "$1" in
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|install_aliases|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|update|status|install|install_packages}"
+	echo "Usage: $0 {start|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|install_aliases|rebuild_tmux_config|rebuild_services|rebuild_prefix|rebuild_update_script|disable_services|enable_services|reload_services|update|status|install|install_packages}"
 	exit 1
 	;;
 esac
