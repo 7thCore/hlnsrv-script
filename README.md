@@ -49,7 +49,7 @@ Bash script for running Hellion on a linux server
 
 -send email notifications on server startup (optional)
 
--send email notifications when server shutdown (optional)
+-send email notifications on server shutdown (optional)
 
 -send discord notifications after 3 crashes within a 5 minute time limit (optional)
 
