@@ -254,14 +254,14 @@ script_send_notification_start_complete() {
 
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_initialized() {
-	if [[ "$EMAIL_START" == "1" ]]; then
+	if [[ "$EMAIL_STOP" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
-	if [[ "$DISCORD_START" == "1" ]]; then
+	if [[ "$DISCORD_STOP" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server shutdown in progress.\"}" "$DISCORD_WEBHOOK"
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress.\"}" "$DISCORD_WEBHOOK"
 		done < $SCRIPT_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
@@ -269,14 +269,14 @@ script_send_notification_stop_initialized() {
 
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_complete() {
-	if [[ "$EMAIL_START" == "1" ]]; then
+	if [[ "$EMAIL_STOP" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
-	if [[ "$DISCORD_START" == "1" ]]; then
+	if [[ "$DISCORD_STOP" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server shutdown complete\"}" "$DISCORD_WEBHOOK"
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete\"}" "$DISCORD_WEBHOOK"
 		done < $SCRIPT_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete." | tee -a "$LOG_SCRIPT"
