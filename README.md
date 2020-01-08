@@ -57,7 +57,7 @@ Bash script for running Hellion on a linux server
 
 -send discord notifications on server startup (optional)
 
--send discord notifications when server shutdown (optional)
+-send discord notifications on server shutdown (optional)
 
 -supports multiple discord webhooks
 
