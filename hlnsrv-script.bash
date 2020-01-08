@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="201912222213"
+export VERSION="202001081635"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -30,20 +30,28 @@ if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
 	EMAIL_SENDER=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_sender | cut -d = -f2) #Send emails from this address
 	EMAIL_RECIPIENT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_recipient | cut -d = -f2) #Send emails to this address
 	EMAIL_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update | cut -d = -f2) #Send emails when server updates
+	EMAIL_START=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_start | cut -d = -f2) #Send emails when the server starts up
+	EMAIL_STOP=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_stop | cut -d = -f2) #Send emails when the server shuts down
 	EMAIL_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_crash | cut -d = -f2) #Send emails when the server crashes
-	
+
+	#Discord configuration
+	DISCORD_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_update | cut -d = -f2) #Send notification when the server updates
+	DISCORD_START=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_start | cut -d = -f2) #Send notifications when the server starts
+	DISCORD_STOP=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_stop | cut -d = -f2) #Send notifications when the server stops
+	DISCORD_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_crash | cut -d = -f2) #Send notifications when the server crashes
+
 	#Ramdisk configuration
 	TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
-	
+
 	#Save game configuration
 	SAVE_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep save_delold | cut -d = -f2) #How many latest save files should the script leave when deleting them.
-	
+
 	#Backup configuration
 	BCKP_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep bckp_delold | cut -d = -f2) #Delete old backups.
-	
+
 	#Log configuration
 	LOG_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep log_delold | cut -d = -f2) #Delete old logs.
-	
+
 	#Script updates from github
 	SCRIPT_UPDATES_GITHUB=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep script_updates | cut -d = -f2) #Get configuration for script updates.
 else
@@ -214,8 +222,68 @@ script_reload_services() {
 	fi
 }
 
+#Systemd service sends notification if notifications for start enabled
+script_send_notification_start_initialized() {
+	if [[ "$EMAIL_START" == "1" ]]; then
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
+		Server startup was initiated at $(date +"%d.%m.%Y %H:%M:%S")
+		EOF
+	fi
+	if [[ "$DISCORD_START" == "1" ]]; then
+		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup was initialized.\"}" "$DISCORD_WEBHOOK"
+		done < $SCRIPT_DIR/discord_webhooks.txt
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup initialized." | tee -a "$LOG_SCRIPT"
+}
+
+#Systemd service sends notification if notifications for start enabled
+script_send_notification_start_complete() {
+	if [[ "$EMAIL_START" == "1" ]]; then
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
+		Server startup was completed at $(date +"%d.%m.%Y %H:%M:%S")
+		EOF
+	fi
+	if [[ "$DISCORD_START" == "1" ]]; then
+		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup complete.\"}" "$DISCORD_WEBHOOK"
+		done < $SCRIPT_DIR/discord_webhooks.txt
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup complete." | tee -a "$LOG_SCRIPT"
+}
+
+#Systemd service sends notification if notifications for stop enabled
+script_send_notification_stop_initialized() {
+	if [[ "$EMAIL_START" == "1" ]]; then
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
+		EOF
+	fi
+	if [[ "$DISCORD_START" == "1" ]]; then
+		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server shutdown in progress.\"}" "$DISCORD_WEBHOOK"
+		done < $SCRIPT_DIR/discord_webhooks.txt
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
+}
+
+#Systemd service sends notification if notifications for stop enabled
+script_send_notification_stop_complete() {
+	if [[ "$EMAIL_START" == "1" ]]; then
+		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
+		EOF
+	fi
+	if [[ "$DISCORD_START" == "1" ]]; then
+		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server shutdown complete\"}" "$DISCORD_WEBHOOK"
+		done < $SCRIPT_DIR/discord_webhooks.txt
+	fi
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete." | tee -a "$LOG_SCRIPT"
+}
+
 #Systemd service sends email if email notifications for crashes enabled
-script_send_crash_email() {
+script_send_notification_crash() {
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
 		systemctl --user status $SERVICE > $LOG_DIR/service_log.txt
 		zip -j $LOG_DIR/service_logs.zip $LOG_DIR/service_log.txt
@@ -231,6 +299,11 @@ script_send_crash_email() {
 		
 		Contact the script developer 7thCore on discord for help regarding any problems the script may have caused.
 		EOF
+	fi
+	if [[ "$DISCORD_CRASH" == "1" ]]; then
+		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"Notification: The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Contact an admin for further information. Time of crash: $(date +"%d.%m.%Y %H:%M:%S")\"}" "$DISCORD_WEBHOOK"
+		done < $SCRIPT_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs." | tee -a "$LOG_SCRIPT"
 }
@@ -485,6 +558,12 @@ script_update() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Available: BuildID: $AVAILABLE_BUILDID, TimeUpdated: $AVAILABLE_TIME" | tee -a "$LOG_SCRIPT"
 		
+		if [[ "$DISCORD_UPDATE" == "1" ]]; then
+			while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+				curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) New update detected. Installing update.\"}" "$DISCORD_WEBHOOK"
+			done < $SCRIPT_DIR/discord_webhooks.txt
+		fi
+		
 		sleep 1
 		
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
@@ -528,6 +607,11 @@ script_update() {
 			EOF
 		fi
 		
+		if [[ "$DISCORD_UPDATE" == "1" ]]; then
+			while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
+				curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Server update complete.\"}" "$DISCORD_WEBHOOK"
+			done < $SCRIPT_DIR/discord_webhooks.txt
+		fi
 	elif [ "$AVAILABLE_TIME" -eq "$INSTALLED_TIME" ]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) No new updates detected." | tee -a "$LOG_SCRIPT"
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
@@ -731,8 +815,8 @@ script_install_services() {
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service
 		fi
 		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service
+		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
+			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service
 		fi
 		
 		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
@@ -757,19 +841,23 @@ script_install_services() {
 		StartLimitBurst=3
 		StartLimitIntervalSec=300
 		StartLimitAction=none
-		OnFailure=$SERVICE_NAME-send-email.service
+		OnFailure=$SERVICE_NAME-send-notification.service
 		
 		[Service]
 		Type=forking
 		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR
+		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_initialized
 		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
 		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME 'env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE'
+		ExecStartPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_complete
+		ExecStop=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_initialized
 		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop 'env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
 		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
 		ExecStop=/usr/bin/rm $LOG_TMP
+		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
 		RestartSec=10
@@ -787,18 +875,22 @@ script_install_services() {
 		StartLimitBurst=3
 		StartLimitIntervalSec=300
 		StartLimitAction=none
-		OnFailure=$SERVICE_NAME-send-email.service
+		OnFailure=$SERVICE_NAME-send-notification.service
 		
 		[Service]
 		Type=forking
 		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR
+		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_initialized
 		ExecStart=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE
+		ExecStartPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_complete
+		ExecStop=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_initialized
 		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
 		ExecStop=/usr/bin/rm $LOG_TMP
 		TimeoutStartSec=infinity
+		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
 		TimeoutStopSec=120
 		RestartSec=10
 		Restart=on-failure
@@ -895,7 +987,7 @@ script_install_services() {
 		ExecStart=$SCRIPT_DIR/$SERVICE_NAME-update.bash -update
 		EOF
 		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service <<- EOF
+		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service <<- EOF
 		[Unit]
 		Description=$NAME Script Send Email notification Service
 		
@@ -1172,7 +1264,7 @@ script_install() {
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service - Executes scheduled script functions: autorestart, save, sync and update."
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.timer - Timer for scheduled command execution of $SERVICE_NAME-timer-3.service"
 	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-3.service - Executes scheduled update checks for this script"
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-email.service - If email notifications enabled, send email if server crashed 3 times in 5 minutes."
+	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service - If email notifications enabled, send email if server crashed 3 times in 5 minutes."
 	echo "$SCRIPT_DIR/$SERVICE_NAME-script.bash - This script."
 	echo "$SCRIPT_DIR/$SERVICE_NAME-update.bash - Update script for automatic updates from github."
 	echo "$SCRIPT_DIR/$SERVICE_NAME-config.conf - Stores steam username and password. Also stores tmpfs/ramdisk setting."
@@ -1221,22 +1313,31 @@ script_install() {
 	fi
 	
 	echo ""
-	read -p "Enable automatic updates for the script from github? (y/n): " SCRIPT_UPDATE_CONFIG
-		
-	echo ""
 	read -p "Enable email notifications (y/n): " POSTFIX_ENABLE
 	if [[ "$POSTFIX_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		read -p "Is postfix already configured? (y/n): " POSTFIX_CONFIGURED
 		echo ""
 		read -p "Enter your email address for the server (example: example@gmail.com): " POSTFIX_SENDER
 		echo ""
-		read -p "Enter your password for $POSTFIX_SENDER : " POSTFIX_SENDER_PSW
+		if [[ "$POSTFIX_CONFIGURED" =~ ^([nN][oO]|[nN])$ ]]; then
+			read -p "Enter your password for $POSTFIX_SENDER : " POSTFIX_SENDER_PSW
+		fi
 		echo ""
 		read -p "Enter the email that will recieve the notifications (example: example2@gmail.com): " POSTFIX_RECIPIENT
 		echo ""
 		read -p "Email notifications for game updates? (y/n): " POSTFIX_UPDATE_ENABLE
 			if [[ "$POSTFIX_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				POSTFIX_UPDATE="1"
+			fi
+		echo ""
+		read -p "Email notifications for server startup? (WARNING: this can be anoying) (y/n): " POSTFIX_CRASH_ENABLE
+			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				POSTFIX_START="1"
+			fi
+		echo ""
+		read -p "Email notifications for server shutdown? (WARNING: this can be anoying) (y/n): " POSTFIX_CRASH_ENABLE
+			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				POSTFIX_STOP="1"
 			fi
 		echo ""
 		read -p "Email notifications for crashes? (y/n): " POSTFIX_CRASH_ENABLE
@@ -1270,9 +1371,45 @@ script_install() {
 	elif [[ "$POSTFIX_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
 		POSTFIX_SENDER="none"
 		POSTFIX_RECIPIENT="none"
-		POSTFIX_SSK="0"
 		POSTFIX_UPDATE="0"
+		POSTFIX_START="0"
+		POSTFIX_STOP="0"
 		POSTFIX_CRASH="0"
+	fi
+	
+	echo ""
+	read -p "Enable discord notifications (y/n): " DISCORD_ENABLE
+	if [[ "$DISCORD_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		echo ""
+		echo "You are able to add multiple webhooks for the script to use in the discord_webhooks.txt file located in the scripts folder."
+		echo "EACH ONE HAS TO BE IN IT'S OWN LINE!"
+		echo ""
+		read -p "Enter your first webhook for the server: " DISCORD_WEBHOOK
+		echo ""
+		read -p "Email notifications for game updates? (y/n): " DISCORD_UPDATE_ENABLE
+			if [[ "$DISCORD_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				DISCORD_UPDATE="1"
+			fi
+		echo ""
+		read -p "Email notifications for server startup? (y/n): " DISCORD_START_ENABLE
+			if [[ "$DISCORD_START_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				DISCORD_START="1"
+			fi
+		echo ""
+		read -p "Email notifications for server shutdown? (y/n): " DISCORD_STOP_ENABLE
+			if [[ "$DISCORD_STOP_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				DISCORD_STOP="1"
+			fi
+		echo ""
+		read -p "Email notifications for crashes? (y/n): " DISCORD_CRASH_ENABLE
+			if [[ "$DISCORD_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				DISCORD_CRASH="1"
+			fi
+	elif [[ "$DISCORD_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
+		DISCORD_UPDATE="0"
+		DISCORD_START="0"
+		DISCORD_STOP="0"
+		DISCORD_CRASH="0"
 	fi
 	
 	echo "Enabling linger"
@@ -1338,7 +1475,13 @@ script_install() {
 	echo 'email_sender='"$POSTFIX_SENDER" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_recipient='"$POSTFIX_RECIPIENT" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_update='"$POSTFIX_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'email_start='"$POSTFIX_START" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'email_stop='"$POSTFIX_STOP" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'email_crash='"$POSTFIX_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'discord_update='"$DISCORD_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'discord_start='"$DISCORD_START" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'discord_stop='"$DISCORD_STOP" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
+	echo 'discord_crash='"$DISCORD_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'script_updates='"$SCRIPT_UPDATE_ENABLED" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'save_delold=10' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
 	echo 'bckp_delold=14' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
@@ -1483,8 +1626,20 @@ case "$1" in
 	-change_branch)
 		script_change_branch
 		;;
-	-send_crash_email)
-		script_send_crash_email
+	-send_notification_start_initialized)
+		script_send_notification_start_initialized
+		;;
+	-send_notification_start_complete)
+		script_send_notification_start_complete
+		;;
+	-send_notification_stop_initialized)
+		script_send_notification_stop_initialized
+		;;
+	-send_notification_stop_complete)
+		script_send_notification_stop_complete
+		;;
+	-send_notification_crash)
+		script_send_notification_crash
 		;;
 	-install_aliases)
 		script_install_alias
