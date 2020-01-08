@@ -47,6 +47,20 @@ Bash script for running Hellion on a linux server
 
 -send email notifications when server updated (optional)
 
+-send email notifications on server startup (optional)
+
+-send email notifications when server shutdown (optional)
+
+-send discord notifications after 3 crashes within a 5 minute time limit (optional)
+
+-send discord notifications when server updated (optional)
+
+-send discord notifications on server startup (optional)
+
+-send discord notifications when server shutdown (optional)
+
+-supports multiple discord webhooks
+
 **Instructions:**
 
 Log in to your server with ssh and execute:
