@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001141650"
+export VERSION="202001141925"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -1006,10 +1006,11 @@ script_update_github() {
 		if [ "$GITHUB_VERSION" -gt "$VERSION" ]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$GITHUB_VERSION" | tee -a $LOG_SCRIPT
-			git clone https://github.com/7thCore/$SERVICE_NAME-script /tmp/$SERVICE_NAME-script
+			git clone https://github.com/7thCore/$SERVICE_NAME-script /$UPDATE_DIR/$SERVICE_NAME-script
 			rm $SCRIPT_DIR/$SERVICE_NAME-script.bash
-			cp --remove-destination /tmp/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
+			cp --remove-destination $UPDATE_DIR/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
 			chmod +x $SCRIPT_DIR/$SERVICE_NAME-script.bash
+			rm -rf $UPDATE_DIR/$SERVICE_NAME-script
 		else
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$VERSION" | tee -a $LOG_SCRIPT
@@ -1022,10 +1023,11 @@ script_update_github_force() {
 	GITHUB_VERSION=$(curl -s https://raw.githubusercontent.com/7thCore/$SERVICE_NAME-script/master/$SERVICE_NAME-script.bash | grep "^export VERSION=" | sed 's/"//g' | cut -d = -f2)
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Forcing script update." | tee -a $LOG_SCRIPT
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$GITHUB_VERSION" | tee -a $LOG_SCRIPT
-	git clone https://github.com/7thCore/$SERVICE_NAME-script /tmp/$SERVICE_NAME-script
+	git clone https://github.com/7thCore/$SERVICE_NAME-script /$UPDATE_DIR/$SERVICE_NAME-script
 	rm $SCRIPT_DIR/$SERVICE_NAME-script.bash
-	cp --remove-destination /tmp/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
+	cp --remove-destination $UPDATE_DIR/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
 	chmod +x $SCRIPT_DIR/$SERVICE_NAME-script.bash
+	rm -rf $UPDATE_DIR/$SERVICE_NAME-script
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Forced script update complete." | tee -a $LOG_SCRIPT
 }
 
