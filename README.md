@@ -3,69 +3,69 @@ Bash script for running Hellion on a linux server
 
 **Required packages**
 
--xvfb
+- xvfb
 
--rsync
+- rsync
 
--tmux
+- tmux
 
--wine
+- wine
 
--winetricks
+- winetricks
 
--steamcmd
+- steamcmd
 
--curl
+- curl
 
--wget
+- wget
 
--cabextract
+- cabextract
 
--postfix (optional for email notifications)
+- postfix (optional for email notifications)
 
--zip (optional but required if using the email feature)
+- zip (optional but required if using the email feature)
 
 **Features:**
 
--auto backups
+- auto backups
 
--auto updates
+- auto updates
 
--script logging
+- script logging
 
--auto restart if crashed
+- auto restart if crashed
 
--delete old backups
+- delete old backups
 
--delete old logs
+- delete old logs
 
--run from ramdisk
+- run from ramdisk
 
--sync from ramdisk to hdd/ssd
+- sync from ramdisk to hdd/ssd
 
--start on os boot
+- start on os boot
 
--shutdown gracefully on os shutdown
+- shutdown gracefully on os shutdown
 
--script auto update from github
+- script auto update from github
 
--send email notifications after 3 crashes within a 5 minute time limit (optional)
+- send email notifications after 3 crashes within a 5 minute time limit (optional)
 
--send email notifications when server updated (optional)
+- send email notifications when server updated (optional)
 
--send email notifications on server startup (optional)
+- send email notifications on server startup (optional)
 
--send email notifications on server shutdown (optional)
+- send email notifications on server shutdown (optional)
 
--send discord notifications after 3 crashes within a 5 minute time limit (optional)
+- send discord notifications after 3 crashes within a 5 minute time limit (optional)
 
--send discord notifications when server updated (optional)
+- send discord notifications when server updated (optional)
 
--send discord notifications on server startup (optional)
+- send discord notifications on server startup (optional)
 
--send discord notifications on server shutdown (optional)
+- send discord notifications on server shutdown (optional)
 
--supports multiple discord webhooks
+- supports multiple discord webhooks
 
 **Instructions:**
 
