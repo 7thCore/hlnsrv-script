@@ -15,6 +15,12 @@ Bash script for running Hellion on a linux server
 
 -steamcmd
 
+-curl
+
+-wget
+
+-cabextract
+
 -postfix (optional for email notifications)
 
 -zip (optional but required if using the email feature)
