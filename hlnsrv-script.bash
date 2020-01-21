@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001152323"
+export VERSION="202001211631"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -329,7 +329,7 @@ script_start() {
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server has been successfully activated." | tee -a "$LOG_SCRIPT"
 			sleep 1
-		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
+		elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
 			sleep 1
 		fi
@@ -338,7 +338,22 @@ script_start() {
 		sleep 1
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
-		sleep 1
+		read -p "Do you still want to start the server?: (y/n)" FORCE_START
+		if [[ "$FORCE_START" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			systemctl --user start $SERVICE
+			sleep 1
+			while [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; do
+				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server is activating. Please wait..." | tee -a "$LOG_SCRIPT"
+				sleep 1
+			done
+			if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
+				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server has been successfully activated." | tee -a "$LOG_SCRIPT"
+				sleep 1
+			elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "failed" ]]; then
+				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server failed to activate. See systemctl --user status $SERVICE for details." | tee -a "$LOG_SCRIPT"
+				sleep 1
+			fi
+		fi
 	fi
 }
 
