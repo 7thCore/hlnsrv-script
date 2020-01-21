@@ -1,3 +1,10 @@
+Update 2020-01-21
+
+- fixed start function not allowing start if server crashed or failed before
+- start function will now ask if the user wishes to start the server even if it crashed earlier
+
+-------------------------
+
 Update 2020-01-15
 
 - added config file check (adds missing settings to the config file if script introduces new configurable features)
