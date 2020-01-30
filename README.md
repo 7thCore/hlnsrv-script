@@ -3,29 +3,9 @@ Bash script for running Hellion on a linux server
 
 -------------------------
 
-**Required packages**
+# What does this script do?
 
-- xvfb
-
-- rsync
-
-- tmux (minimum version: 2.9a)
-
-- wine
-
-- winetricks
-
-- steamcmd
-
-- curl
-
-- wget
-
-- cabextract
-
-- postfix (optional for email notifications)
-
-- zip (optional but required if using the email feature)
+This script creates a new non-sudo enabled user and installes the game in a folder called server in the user's home folder. It also installes systemd services for starting and shutting down the game server when the computer starts up, shuts down or reboots and also installs systemd timers so the script is executed on timed intervals (every 15 minutes) to do it's work like automatic game updates and backups. It will also create a config file in the script folder that will save the configuration you defined between the installation process. The reason for user creation is to limit the script's privliges so it CAN NOT be used with sudo when handeling the game server. Sudo is only needed for installing the script (for user creation) and installing packages (it the script supports the distro you are running).
 
 -------------------------
 
@@ -73,21 +53,6 @@ Bash script for running Hellion on a linux server
 
 -------------------------
 
-# WARNING
-
-- Script updates from GitHub: These may include malicious code to steal any info the script uses to work, like email credentials and discord webhooks.
-Now I'm not saying that I'm that kind of person that would do that but:
-
-**IF YOU DON'T TRUST ME, LEAVE THIS OFF FOR SECURITY REASONS!**
-
--------------------------
-
-# What does this script do?
-
-This script creates a new non-sudo enabled user and installes the game in a folder called server in the user's home folder. It also installes systemd services for starting and shutting down the game server when the computer starts up, shuts down or reboots and also installs systemd timers so the script is executed on timed intervals (every 15 minutes) to do it's work like automatic game updates and backups. It will also create a config file in the script folder that will save the configuration you defined between the installation process. The reason for user creation is to limit the script's privliges so it CAN NOT be used with sudo when handeling the game server. Sudo is only needed for installing the script (for user creation) and installing packages (it the script supports the distro you are running).
-
--------------------------
-
 # Supported distros
 
 - Arch Linux
@@ -100,7 +65,42 @@ The script can, in theory run on any systemd-enabled distro. So if you are not u
 
 -------------------------
 
+# WARNING
+
+- Script updates from GitHub: These may include malicious code to steal any info the script uses to work, like email credentials and discord webhooks.
+Now I'm not saying that I'm that kind of person that would do that but:
+
+**IF YOU DON'T TRUST ME, LEAVE THIS OFF FOR SECURITY REASONS!**
+
+-------------------------
+
 # Installation
+
+-------------------------
+
+**Required packages**
+
+- xvfb
+
+- rsync
+
+- tmux (minimum version: 2.9a)
+
+- wine
+
+- winetricks
+
+- steamcmd
+
+- curl
+
+- wget
+
+- cabextract
+
+- postfix (optional for email notifications)
+
+- zip (optional but required if using the email feature)
 
 -------------------------
 
