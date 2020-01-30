@@ -2,14 +2,14 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001301608"
+export VERSION="202001310020"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
 if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
 	USER="$(whoami)"
 else
-	if [ "$1" == "-install" ] || [ "$1" == "-install_packages" ]; then
+	if [[ "-install" == "$1" ]] || [[ "-install_packages" == "$1" ]]; then
 		echo "WARNING: Installation mode"
 		read -p "Please enter username (leave empty for arma):" USER #Enter desired username that will be used when creating the new user
 		USER=${USER:=hellion} #If no username was given, use default
@@ -1489,10 +1489,11 @@ script_install() {
 }
 
 #Do not allow for another instance of this script to run to prevent data loss
-if [ "$1" != "-send_notification_start_initialized" ] || [ "$1" != "-send_notification_start_complete" ] || [ "$1" != "-send_notification_stop_initialized" ] || [ "$1" != "-send_notification_stop_complete" ] || [ "$1" != "-send_notification_crash" ]; then
-	if [[ $(pidof -o %PPID -x $0) -gt "0" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] Another instance of this script is already running. Exiting to prevent data loss."
-		exit 0
+if [[ "-send_notification_start_initialized" != "$1" ]] && [[ "-send_notification_start_complete" != "$1" ]] && [[ "-send_notification_stop_initialized" != "$1" ]] && [[ "-send_notification_stop_complete" != "$1" ]] && [[ "-send_notification_crash" != "$1" ]]; then
+	SCRIPT_PID_CHECK=$(basename -- "$0")
+	if pidof -x "$SCRIPT_PID_CHECK" -o $$ > /dev/null; then
+		echo "An another instance of this script is already running, please clear all the sessions of this script before starting a new session"
+		exit 1
 	fi
 fi
 

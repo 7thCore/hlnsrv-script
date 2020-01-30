@@ -1,3 +1,10 @@
+Update 2020-01-31
+
+- fixed check if multiple script instances running
+- fixed check for executing functions/arguments to allow notification sending 
+
+-------------------------
+
 Update 2020-01-30
 
 - added check for executing functions/arguments to only allow -install and -install_packages functions to be allowed to run with sudo or as root
