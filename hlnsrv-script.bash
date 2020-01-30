@@ -2,16 +2,21 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001211631"
+export VERSION="202001301608"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
 if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
 	USER="$(whoami)"
 else
-	echo "WARNING: Installation mode"
-	read -p "Please enter username (leave empty for hellion):" USER #Enter desired username that will be used when creating the new user
-	USER=${USER:=hellion} #If no username was given, use default
+	if [ "$1" == "-install" ] || [ "$1" == "-install_packages" ]; then
+		echo "WARNING: Installation mode"
+		read -p "Please enter username (leave empty for arma):" USER #Enter desired username that will be used when creating the new user
+		USER=${USER:=hellion} #If no username was given, use default
+	else
+		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: arma) with sudo -i -u arma and execute your script without root from the coresponding scripts folder."
+		exit 1
+	fi
 fi
 
 #Server configuration
@@ -1206,13 +1211,13 @@ script_install() {
 	read -p "Press any key to continue" -n 1 -s -r
 	echo ""
 	read -p "Enter password for user $USER: " USER_PASS
-	echo ""
-	read -p "Enable RamDisk (y/n): " TMPFS
-	echo ""
 	
 	sudo useradd -m -g users -s /bin/bash $USER
 	echo -en "$USER_PASS\n$USER_PASS\n" | sudo passwd $USER
 	
+	echo ""
+	read -p "Enable RamDisk (y/n): " TMPFS
+	echo ""
 	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		TMPFS_ENABLE="1"
 		read -p "Do you already have a ramdisk mounted at /mnt/tmpfs? (y/n): " TMPFS_PRESENT
@@ -1230,7 +1235,6 @@ script_install() {
 	echo ""
 	read -p "Enable beta branch? Used for experimental and legacy versions. (y/n): " SET_BETA_BRANCH_STATE
 	echo ""
-	
 	if [[ "$SET_BETA_BRANCH_STATE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		BETA_BRANCH_ENABLED="1"
 		echo "Look up beta branch names at https://steamdb.info/app/$APPID/depots/"
@@ -1242,7 +1246,11 @@ script_install() {
 	fi
 	
 	echo ""
+	echo "WARNING: script updates from github may include malicious code to steal any info the script uses to work, like email accound and password."
+	echo "Not saying i'm that kind of person that would do that but:"
+	echo "IF YOU DON'T TRUST ME, LEAVE THIS OFF FOR SECURITY REASONS!"
 	read -p "Enable automatic updates for the script from github? (y/n): " SCRIPT_UPDATE_CONFIG
+	SCRIPT_UPDATE_CONFIG=${SCRIPT_UPDATE_CONFIG:=n}
 	if [[ "$SCRIPT_UPDATE_CONFIG" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		SCRIPT_UPDATE_ENABLED="1"
 	else
@@ -1481,9 +1489,11 @@ script_install() {
 }
 
 #Do not allow for another instance of this script to run to prevent data loss
-if [[ $(pidof -o %PPID -x $0) -gt "0" ]]; then
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] Another instance of this script is already running. Exiting to prevent data loss."
-	exit 0
+if [ "$1" != "-send_notification_start_initialized" ] || [ "$1" != "-send_notification_start_complete" ] || [ "$1" != "-send_notification_stop_initialized" ] || [ "$1" != "-send_notification_stop_complete" ] || [ "$1" != "-send_notification_crash" ]; then
+	if [[ $(pidof -o %PPID -x $0) -gt "0" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$NAME] [INFO] Another instance of this script is already running. Exiting to prevent data loss."
+		exit 0
+	fi
 fi
 
 if [ "$EUID" -ne "0" ] && [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ]; then #Check if script executed as root, if not generate missing config fields
@@ -1508,29 +1518,29 @@ case "$1" in
 		echo -e "${CYAN}$NAME server script by 7thCore${NC}"
 		echo "Version: $VERSION"
 		echo ""
-		echo -e "${GREEN}start ${RED}- ${GREEN}Start the server${NC}"
-		echo -e "${GREEN}stop ${RED}- ${GREEN}Stop the server${NC}"
-		echo -e "${GREEN}restart ${RED}- ${GREEN}Restart the server${NC}"
-		echo -e "${GREEN}sync ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd${NC}"
-		echo -e "${GREEN}backup ${RED}- ${GREEN}Backup files, if server running or not.${NC}"
-		echo -e "${GREEN}autobackup ${RED}- ${GREEN}Automaticly backup files when server running${NC}"
-		echo -e "${GREEN}deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
-		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server.json and SSK.txt files.${NC}"
-		echo -e "${GREEN}deloldsavefiles ${RED}- ${GREEN}Delete the server's save game (leaves the latest number files specefied in the script conf file.${NC}"
-		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
-		echo -e "${GREEN}install_aliases ${RED}- ${GREEN}Installs .bashrc aliases for easy access to the server tmux session.${NC}"
-		echo -e "${GREEN}rebuild_tmux_config ${RED}- ${GREEN}Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured.${NC}"
-		echo -e "${GREEN}rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured.${NC}"
-		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
-		echo -e "${GREEN}disable_services ${RED}- ${GREEN}Disables all services. The server and the script will not start up on boot anymore.${NC}"
-		echo -e "${GREEN}enable_services ${RED}- ${GREEN}Enables all services dependant on the configuration file of the script.${NC}"
-		echo -e "${GREEN}reload_services ${RED}- ${GREEN}Reloads all services, dependant on the configuration file.${NC}"
-		echo -e "${GREEN}update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it.${NC}"
-		echo -e "${GREEN}update_script ${RED}- ${GREEN}Check github for script updates and update if newer version available.${NC}"
-		echo -e "${GREEN}update_script_force ${RED}- ${GREEN}Get latest script from github and install it no matter what the version.${NC}"
-		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server${NC}"
-		echo -e "${GREEN}install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game.${NC}"
-		echo -e "${GREEN}install_packages ${RED}- ${GREEN}Installs all the needed packages (Supports only Arch linux & Ubuntu 19.10 and onward)"
+		echo -e "${GREEN}-start ${RED}- ${GREEN}Start the server${NC}"
+		echo -e "${GREEN}-stop ${RED}- ${GREEN}Stop the server${NC}"
+		echo -e "${GREEN}-restart ${RED}- ${GREEN}Restart the server${NC}"
+		echo -e "${GREEN}-sync ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd${NC}"
+		echo -e "${GREEN}-backup ${RED}- ${GREEN}Backup files, if server running or not${NC}"
+		echo -e "${GREEN}-autobackup ${RED}- ${GREEN}Automaticly backup files when server running${NC}"
+		echo -e "${GREEN}-deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
+		echo -e "${GREEN}-delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the GameServer.ini file${NC}"
+		echo -e "${GREEN}-deloldsavefiles ${RED}- ${GREEN}Delete the server's save game (leaves the latest number files specefied in the script conf file${NC}"
+		echo -e "${GREEN}-change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on)${NC}"
+		echo -e "${GREEN}-install_aliases ${RED}- ${GREEN}Installs .bashrc aliases for easy access to the server tmux session${NC}"
+		echo -e "${GREEN}-rebuild_tmux_config ${RED}- ${GREEN}Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured${NC}"
+		echo -e "${GREEN}-rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured${NC}"
+		echo -e "${GREEN}-rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured${NC}"
+		echo -e "${GREEN}-disable_services ${RED}- ${GREEN}Disables all services. The server and the script will not start up on boot anymore${NC}"
+		echo -e "${GREEN}-enable_services ${RED}- ${GREEN}Enables all services dependant on the configuration file of the script${NC}"
+		echo -e "${GREEN}-reload_services ${RED}- ${GREEN}Reloads all services, dependant on the configuration file${NC}"
+		echo -e "${GREEN}-update ${RED}- ${GREEN}Update the server, if the server is running it wil save it, shut it down, update it and restart it${NC}"
+		echo -e "${GREEN}-update_script ${RED}- ${GREEN}Check github for script updates and update if newer version available${NC}"
+		echo -e "${GREEN}-update_script_force ${RED}- ${GREEN}Get latest script from github and install it no matter what the version${NC}"
+		echo -e "${GREEN}-status ${RED}- ${GREEN}Display status of server${NC}"
+		echo -e "${GREEN}-install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game${NC}"
+		echo -e "${GREEN}-install_packages ${RED}- ${GREEN}Installs all the needed packages (Supports only Arch linux & Ubuntu 19.10 and onward)${NC}"
 		echo ""
 		echo -e "${LIGHTRED}If this is your first time running the script:${NC}"
 		echo -e "${LIGHTRED}Use the -install argument (run only this command as root) and follow the instructions${NC}"

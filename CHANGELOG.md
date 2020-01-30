@@ -1,3 +1,11 @@
+Update 2020-01-30
+
+- added check for executing functions/arguments to only allow -install and -install_packages functions to be allowed to run with sudo or as root
+- added check for executing functions/arguments to allow notification sending functions to run along side another instance of the script
+- added warning to readme and the script for the update script from github function for security reasons
+
+-------------------------
+
 Update 2020-01-21
 
 - fixed start function not allowing start if server crashed or failed before
