@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001310020"
+export VERSION="202001312016"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -11,10 +11,10 @@ if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the use
 else
 	if [[ "-install" == "$1" ]] || [[ "-install_packages" == "$1" ]]; then
 		echo "WARNING: Installation mode"
-		read -p "Please enter username (leave empty for arma):" USER #Enter desired username that will be used when creating the new user
+		read -p "Please enter username (leave empty for hellion):" USER #Enter desired username that will be used when creating the new user
 		USER=${USER:=hellion} #If no username was given, use default
 	else
-		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: arma) with sudo -i -u arma and execute your script without root from the coresponding scripts folder."
+		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: hellion) with sudo -i -u hellion and execute your script without root from the coresponding scripts folder."
 		exit 1
 	fi
 fi
@@ -35,7 +35,7 @@ if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
 	EMAIL_SENDER=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_sender | cut -d = -f2) #Send emails from this address
 	EMAIL_RECIPIENT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_recipient | cut -d = -f2) #Send emails to this address
 	EMAIL_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update | cut -d = -f2) #Send emails when server updates
-	EMAIL_UPDATE_SCRIPT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_update_script | cut -d = -f2) #Send notification when the script updates
+	EMAIL_UPDATE_SCRIPT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update_script | cut -d = -f2) #Send notification when the script updates
 	EMAIL_START=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_start | cut -d = -f2) #Send emails when the server starts up
 	EMAIL_STOP=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_stop | cut -d = -f2) #Send emails when the server shuts down
 	EMAIL_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_crash | cut -d = -f2) #Send emails when the server crashes

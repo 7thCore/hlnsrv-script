@@ -1,5 +1,11 @@
 Update 2020-01-31
 
+- fixed some username examples being displayed wrong
+
+-------------------------
+
+Update 2020-01-31
+
 - fixed check if multiple script instances running
 - fixed check for executing functions/arguments to allow notification sending 
 
