@@ -69,10 +69,7 @@ The script can, in theory run on any systemd-enabled distro. So if you are not u
 
 # WARNING
 
-- Script updates from GitHub: These may include malicious code to steal any info the script uses to work, like email credentials and discord webhooks.
-Now I'm not saying that I'm that kind of person that would do that but:
-
-**IF YOU DON'T TRUST ME, LEAVE THIS OFF FOR SECURITY REASONS!**
+- Script updates from GitHub: This will enable the script to update itself from github WITHOUT your consent. If you don't trust me, leave this off.
 
 -------------------------
 
