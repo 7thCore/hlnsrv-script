@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202001312016"
+export VERSION="202002031533"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -112,15 +112,19 @@ CYAN='\033[0;36m'
 LIGHTRED='\033[1;31m'
 NC='\033[0m'
 
-#Deletes old logs
+#Generate log folder structure
 script_logs() {
 	#If there is not a folder for today, create one
 	if [ ! -d "$LOG_DIR" ]; then
 		mkdir -p $LOG_DIR
 	fi
+}
+
+#Deletes old logs
+script_del_logs() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	#Delete old logs
-	find $LOG_DIR/* -mtime +$LOG_DELOLD -exec rm {} \;
+	find $LOG_DIR/* -mtime +$LOG_DELOLD -exec rm -rf {} \;
 	#Delete empty folders
 	#find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
 	find $BCKP_DIR/ -type d -empty -delete
@@ -129,6 +133,7 @@ script_logs() {
 
 #Prints out if the server is running
 script_status() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
@@ -144,6 +149,7 @@ script_status() {
 
 #Disable all script services
 script_disable_services() {
+	script_logs
 	if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-mkdir-tmpfs.service)" == "enabled" ]]; then
 		systemctl --user disable $SERVICE_NAME-mkdir-tmpfs.service
 	fi
@@ -164,6 +170,7 @@ script_disable_services() {
 
 #Disables all script services, available to the user
 script_disable_services_manual() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) WARNING: This will disable all script services. The server will be disabled." | tee -a "$LOG_SCRIPT"
 	read -p "Are you sure you want to disable all services? (y/n): " DISABLE_SCRIPT_SERVICES
 	if [[ "$DISABLE_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -175,6 +182,7 @@ script_disable_services_manual() {
 
 # Enable script services by reading the configuration file
 script_enable_services() {
+	script_logs
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
 		if [[ "$(systemctl --user show -p UnitFileState --value $SERVICE_NAME-mkdir-tmpfs.service)" == "disabled" ]]; then
 			systemctl --user enable $SERVICE_NAME-mkdir-tmpfs.service
@@ -198,6 +206,7 @@ script_enable_services() {
 
 # Enable script services by reading the configuration file, available to the user
 script_enable_services_manual() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) This will enable all script services. The server will be enabled." | tee -a "$LOG_SCRIPT"
 	read -p "Are you sure you want to disable all services? (y/n): " ENABLE_SCRIPT_SERVICES
 	if [[ "$ENABLE_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -209,6 +218,7 @@ script_enable_services_manual() {
 
 #Disables all script services an re-enables them by reading the configuration file
 script_reload_services() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reload services) This will reload all script services." | tee -a "$LOG_SCRIPT"
 	read -p "Are you sure you want to reload all services? (y/n): " RELOAD_SCRIPT_SERVICES
 	if [[ "$RELOAD_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -223,6 +233,7 @@ script_reload_services() {
 
 #Systemd service sends notification if notifications for start enabled
 script_send_notification_start_initialized() {
+	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was initiated at $(date +"%d.%m.%Y %H:%M:%S")
@@ -238,6 +249,7 @@ script_send_notification_start_initialized() {
 
 #Systemd service sends notification if notifications for start enabled
 script_send_notification_start_complete() {
+	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was completed at $(date +"%d.%m.%Y %H:%M:%S")
@@ -253,6 +265,7 @@ script_send_notification_start_complete() {
 
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_initialized() {
+	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
@@ -268,6 +281,7 @@ script_send_notification_stop_initialized() {
 
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_complete() {
+	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
 		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
@@ -283,6 +297,7 @@ script_send_notification_stop_complete() {
 
 #Systemd service sends email if email notifications for crashes enabled
 script_send_notification_crash() {
+	script_logs
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
 		systemctl --user status $SERVICE > $LOG_DIR/service_log.txt
 		zip -j $LOG_DIR/service_logs.zip $LOG_DIR/service_log.txt
@@ -309,6 +324,7 @@ script_send_notification_crash() {
 
 #Sync server files from ramdisk to hdd/ssd
 script_sync() {
+	script_logs
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
@@ -323,6 +339,7 @@ script_sync() {
 
 #Start the server
 script_start() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server start initialized." | tee -a "$LOG_SCRIPT"
 		systemctl --user start $SERVICE
@@ -364,6 +381,7 @@ script_start() {
 
 #Stop the server
 script_stop() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server is not running." | tee -a "$LOG_SCRIPT"
 		sleep 1
@@ -381,6 +399,7 @@ script_stop() {
 
 #Restart the server
 script_restart() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Restart) Server is not running. Use -start to start the server." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "activating" ]]; then
@@ -399,6 +418,7 @@ script_restart() {
 
 #Deletes old save games
 script_deloldsavefiles() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files: leave latest $SAVE_DELOLD save files." | tee -a "$LOG_SCRIPT"
 	#Check if running on tmpfs and delete saves
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
@@ -410,6 +430,7 @@ script_deloldsavefiles() {
 
 #Deletes old backups
 script_deloldbackup() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups: $BCKP_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	# Delete old backups
 	find $BCKP_DIR/* -type f -mtime +$BCKP_DELOLD -exec rm {} \;
@@ -421,6 +442,7 @@ script_deloldbackup() {
 
 #Backs up the server
 script_backup() {
+	script_logs
 	#If there is not a folder for today, create one
 	if [ ! -d "$BCKP_DEST" ]; then
 		mkdir -p $BCKP_DEST
@@ -434,6 +456,7 @@ script_backup() {
 
 #Automaticly backs up the server and deletes old backups
 script_autobackup() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Autobackup) Server is not running." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
@@ -446,6 +469,7 @@ script_autobackup() {
 
 #Delete the savegame from the server
 script_delete_save() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "activating" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "deactivating" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete save) WARNING! This will delete the server's save game." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to delete the server's save game? (y/n): " DELETE_SERVER_SAVE
@@ -475,6 +499,7 @@ script_delete_save() {
 
 #Change the steam branch of the app
 script_change_branch() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "activating" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "deactivating" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Change branch) Server branch change initiated. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to change the server branch? (y/n): " CHANGE_SERVER_BRANCH
@@ -532,6 +557,7 @@ script_change_branch() {
 
 #Check for updates. If there are updates available, shut down the server, update it and restart it.
 script_update() {
+	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Initializing update check." | tee -a "$LOG_SCRIPT"
 	if [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Beta branch enabled. Branch name: $BETA_BRANCH_NAME" | tee -a "$LOG_SCRIPT"
@@ -630,6 +656,7 @@ script_update() {
 #Install aliases in .bashrc
 script_install_alias(){
 	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		script_logs
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to install bash aliases into .bashrc? (y/n): " INSTALL_BASHRC_ALIAS
 		if [[ "$INSTALL_BASHRC_ALIAS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -660,6 +687,7 @@ script_install_alias(){
 #Install or reinstall tmux configuration
 script_install_tmux_config() {
 	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		script_logs
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall tmux configuration) Tmux configuration reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to reinstall the tmux configuration? (y/n): " REINSTALL_TMUX_CONFIG
 		if [[ "$REINSTALL_TMUX_CONFIG" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -746,7 +774,6 @@ script_install_tmux_config() {
 		bind-key r source-file $SCRIPT_DIR/$SERVICE_NAME-tmux.conf \; display-message "Config reloaded!"
 
 		set-hook -g session-created 'resize-window -y 24 -x 10000'
-		set-hook -g session-created "pipe-pane -o 'tee >> $LOG_TMP'"
 		set-hook -g client-attached 'resize-window -y 24 -x 10000'
 		set-hook -g client-detached 'resize-window -y 24 -x 10000'
 		set-hook -g client-resized 'resize-window -y 24 -x 10000'
@@ -775,6 +802,7 @@ script_install_tmux_config() {
 #Install or reinstall systemd services
 script_install_services() {
 	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
+		script_logs
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to reinstall the systemd services? (y/n): " REINSTALL_SYSTEMD_SERVICES
 		if [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -987,6 +1015,7 @@ script_install_services() {
 
 #Reinstalls the wine prefix
 script_install_prefix() {
+	script_logs
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "active" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "activating" ]] && [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" != "deactivating" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall Wine prefix) Wine prefix reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
 		read -p "Are you sure you want to reinstall the wine prefix? (y/n): " REINSTALL_PREFIX
@@ -1023,6 +1052,7 @@ script_install_prefix() {
 
 #Check github for script updates and update if newer version available
 script_update_github() {
+	script_logs
 	if [[ "$SCRIPT_UPDATES_GITHUB" == "1" ]]; then
 		GITHUB_VERSION=$(curl -s https://raw.githubusercontent.com/7thCore/$SERVICE_NAME-script/master/$SERVICE_NAME-script.bash | grep "^export VERSION=" | sed 's/"//g' | cut -d = -f2)
 		if [ "$GITHUB_VERSION" -gt "$VERSION" ]; then
@@ -1063,6 +1093,7 @@ script_update_github() {
 
 #Get latest script from github no matter what the version
 script_update_github_force() {
+	script_logs
 	GITHUB_VERSION=$(curl -s https://raw.githubusercontent.com/7thCore/$SERVICE_NAME-script/master/$SERVICE_NAME-script.bash | grep "^export VERSION=" | sed 's/"//g' | cut -d = -f2)
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Forcing script update." | tee -a $LOG_SCRIPT
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$GITHUB_VERSION" | tee -a $LOG_SCRIPT
@@ -1086,8 +1117,7 @@ script_timer_one() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
-		script_enabled
-		script_logs
+		script_del_logs
 		script_deloldsavefiles
 		script_sync
 		script_autobackup
@@ -1108,8 +1138,7 @@ script_timer_two() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server is in deactivating. Please wait." | tee -a "$LOG_SCRIPT"
 	elif [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Status) Server running." | tee -a "$LOG_SCRIPT"
-		script_enabled
-		script_logs
+		script_del_logs
 		script_deloldsavefiles
 		script_sync
 		script_update
@@ -1131,7 +1160,7 @@ script_install_packages() {
 			echo "Include = /etc/pacman.d/mirrorlist" >> /mnt/etc/pacman.conf
 			
 			#Install packages and enable services
-			sudo pacman -Syu --noconfirm wine-staging wine-mono wine_gecko libpulse libxml2 mpg123 lcms2 giflib libpng gnutls gst-plugins-base gst-plugins-good lib32-libpulse lib32-libxml2 lib32-mpg123 lib32-lcms2 lib32-giflib lib32-libpng lib32-gnutls lib32-gst-plugins-base lib32-gst-plugins-good rsync cabextract unzip p7zip wget curl tmux postfix zip jq xorg-server-xvfb samba
+			sudo pacman -Syu --noconfirm wine-staging wine-mono wine_gecko winetricks libpulse libxml2 mpg123 lcms2 giflib libpng gnutls gst-plugins-base gst-plugins-good lib32-libpulse lib32-libxml2 lib32-mpg123 lib32-lcms2 lib32-giflib lib32-libpng lib32-gnutls lib32-gst-plugins-base lib32-gst-plugins-good rsync cabextract unzip p7zip wget curl tmux postfix zip jq xorg-server-xvfb samba
 			sudo systemctl enable smb nmb winbind
 			sudo systemctl start smb nmb winbind
 		elif [[ "$DISTRO" == "ubuntu" ]]; then
@@ -1140,11 +1169,34 @@ script_install_packages() {
 			#Get codename
 			UBUNTU_CODENAME=$(cat /etc/os-release | grep "^UBUNTU_CODENAME=" | cut -d = -f2)
 			
-			#Add wine repositroy and install packages
+			#Add i386 architecture support
 			sudo dpkg --add-architecture i386
+			
+			#Check codename and install config for installation
+			if [[ "$UBUNTU_CODENAME" == "bionic" ]]; then
+				cat > /etc/apt/sources.list <<- EOF
+				#### ubuntu eoan #########
+				deb http://archive.ubuntu.com/ubuntu eoan main restricted universe multiverse
+				EOF
+				
+				cat > /etc/apt/preferences.d/eoan.pref <<- EOF
+				Package: *
+				Pin: release n=$UBUNTU_CODENAME
+				Pin-Priority: 10
+				
+				Package: tmux
+				Pin: release n=eoan
+				Pin-Priority: 900
+				EOF
+			fi
+			
+			#Add wine repositroy and install packages
 			wget -nc https://dl.winehq.org/wine-builds/winehq.key
 			sudo apt-key add winehq.key
 			sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $UBUNTU_CODENAME main"
+			
+			#Check for updates and update local repo database
+			sudo apt update
 			
 			#Install packages and enable services
 			sudo apt install --install-recommends winehq-staging
@@ -1152,19 +1204,20 @@ script_install_packages() {
 			sudo apt install rsync cabextract unzip p7zip wget curl tmux postfix zip jq xvfb samba winbind
 			sudo systemctl enable smbd nmbd winbind
 			sudo systemctl start smbd nmbd winbind
-		fi
 			
-		#Install winetricks
-		wget https://raw.githubusercontent.com/Kreytricks/kreytricks/349c0afcc0b450799a812f2f8a3eb8a562465c77/src/winetricks
-		sudo mv winetricks /usr/local/bin/
-		sudo chmod +x /usr/local/bin/winetricks
+			#Install winetricks
+			wget  https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
+			sudo mv winetricks /usr/local/bin/
+			sudo chmod +x /usr/local/bin/winetricks
+		fi
+		
 		if [[ "$DISTRO" == "arch" ]]; then
 			echo "Arch Linux users have to install SteamCMD with an AUR tool."
 		fi
 		echo "Package installation complete."
 	else
 		echo "os-release file not found. Is this distro supported?"
-		echo "This script currently supports Arch Linux and Ubuntu 19.10"
+		echo "This script currently supports Arch Linux, Ubutnu 18.04 LTS (see known issues) and Ubuntu 19.10"
 		exit 1
 	fi
 }
@@ -1175,9 +1228,9 @@ script_install() {
 	echo "Required packages that need to be installed on the server:"
 	echo "xvfb"
 	echo "rsync"
-	echo "wine"
-	echo "winetricks"
-	echo "tmux"
+	echo "wine (minimum version: 5.0)"
+	echo "winetricks (minimum version: 20191224)"
+	echo "tmux (minimum version: 2.9a)"
 	echo "steamcmd"
 	echo "postfix (optional/for the email feature)"
 	echo "zip (optional but required if using the email feature)"
@@ -1246,10 +1299,7 @@ script_install() {
 	fi
 	
 	echo ""
-	echo "WARNING: script updates from github may include malicious code to steal any info the script uses to work, like email accound and password."
-	echo "Not saying i'm that kind of person that would do that but:"
-	echo "IF YOU DON'T TRUST ME, LEAVE THIS OFF FOR SECURITY REASONS!"
-	read -p "Enable automatic updates for the script from github? (y/n): " SCRIPT_UPDATE_CONFIG
+	read -p "Enable automatic updates for the script from github? Read warning in readme! (y/n): " SCRIPT_UPDATE_CONFIG
 	SCRIPT_UPDATE_CONFIG=${SCRIPT_UPDATE_CONFIG:=n}
 	if [[ "$SCRIPT_UPDATE_CONFIG" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		SCRIPT_UPDATE_ENABLED="1"

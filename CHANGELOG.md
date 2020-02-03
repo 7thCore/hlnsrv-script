@@ -1,3 +1,11 @@
+Update 2020-02-03
+
+- added support for Ubuntu 18.04 (see known issues)
+- reworked script log functions (create log structure and delete)
+- cleaned up old script enabled functions (not used anymore)
+
+-------------------------
+
 Update 2020-01-31
 
 - fixed some username examples being displayed wrong

@@ -86,9 +86,9 @@ Now I'm not saying that I'm that kind of person that would do that but:
 
 - tmux (minimum version: 2.9a)
 
-- wine
+- wine (minimum version: 5.0)
 
-- winetricks
+- winetricks (minimum version: 20191224)
 
 - steamcmd
 
@@ -165,6 +165,8 @@ After the installation finishes you can log in to the newly created user and fin
 
 -------------------------
 
-**Known issues are:**
+# Known issues:
 
--The winetricks package in ubuntu is outdated. Follow this guide to install the latest winetricks: https://wiki.winehq.org/Winetricks (needed for dotnet472)
+| Issue | Resolution |
+| ----- | ---------- |
+| Ubuntu 18.04 LTS Support (Script can't enable services during installation) | This version of Ubuntu has a bug in it's systemd component, meaning the script CAN NOT enable the services required for the game to start up after boot. You will have to do this manually by rebooting the os and logging in with the username you designated at the beginning of the install procedure then execute the script with the `-enable_services` argument. |
