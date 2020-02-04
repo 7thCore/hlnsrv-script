@@ -1,3 +1,17 @@
+Update 2020-02-05
+
+- fixed -help asking for username and thinking it's in installation mode
+- fixed Arch Linux package installation
+- modified script displaying configuration is missing in installation mode
+- disabled tmux session sending all output to a log file
+
+Existing users need to stop the server with systemctl --user stop hlnsrv-tmpfs.service or hlnsrv.service
+Existing users need to update the script and execute the following paramerers to rebuild updated functions:
+
+- -rebuild_services
+
+-------------------------
+
 Update 2020-02-03
 
 - added support for Ubuntu 18.04 (see known issues)

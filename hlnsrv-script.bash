@@ -2,17 +2,21 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202002032212"
+export VERSION="202002050015"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
 if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
 	USER="$(whoami)"
 else
-	if [[ "-install" == "$1" ]] || [[ "-install_packages" == "$1" ]]; then
+	if [[ "-install" == "$1" ]]; then
 		echo "WARNING: Installation mode"
 		read -p "Please enter username (leave empty for hellion):" USER #Enter desired username that will be used when creating the new user
 		USER=${USER:=hellion} #If no username was given, use default
+	elif [[ "-install_packages" == "$1" ]]; then
+		echo "Commencing installation of required packages."
+	elif [[ "-help" == "$1" ]]; then
+		echo ""
 	else
 		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: hellion) with sudo -i -u hellion and execute your script without root from the coresponding scripts folder."
 		exit 1
@@ -62,7 +66,9 @@ if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
 	#Script updates from github
 	SCRIPT_UPDATES_GITHUB=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep script_updates= | cut -d = -f2) #Get configuration for script updates.
 else
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Configuration) The configuration is missing. Did you execute script installation?"
+	if [[ "-install" != "$1" ]] && [[ "-install_packages" != "$1" ]] && [[ "-help" != "$1" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Configuration) Error: The configuration file is missing. Generating missing configuration strings using default values."
+	fi
 fi
 
 #App id of the steam game
@@ -1156,8 +1162,8 @@ script_install_packages() {
 			#Arch distro
 			
 			#Add arch linux multilib repository
-			echo "[multilib]" >> /mnt/etc/pacman.conf
-			echo "Include = /etc/pacman.d/mirrorlist" >> /mnt/etc/pacman.conf
+			echo "[multilib]" >> /etc/pacman.conf
+			echo "Include = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
 			
 			#Install packages and enable services
 			sudo pacman -Syu --noconfirm wine-staging wine-mono wine_gecko winetricks libpulse libxml2 mpg123 lcms2 giflib libpng gnutls gst-plugins-base gst-plugins-good lib32-libpulse lib32-libxml2 lib32-mpg123 lib32-lcms2 lib32-giflib lib32-libpng lib32-gnutls lib32-gst-plugins-base lib32-gst-plugins-good rsync cabextract unzip p7zip wget curl tmux postfix zip jq xorg-server-xvfb samba
