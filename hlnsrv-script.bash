@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202002050015"
+export VERSION="202002052004"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -16,7 +16,7 @@ else
 	elif [[ "-install_packages" == "$1" ]]; then
 		echo "Commencing installation of required packages."
 	elif [[ "-help" == "$1" ]]; then
-		echo ""
+		echo "Displaying help message"
 	else
 		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: hellion) with sudo -i -u hellion and execute your script without root from the coresponding scripts folder."
 		exit 1
@@ -891,7 +891,6 @@ script_install_services() {
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
 		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
-		ExecStop=/usr/bin/rm $LOG_TMP
 		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
 		TimeoutStartSec=infinity
 		TimeoutStopSec=120
@@ -923,7 +922,6 @@ script_install_services() {
 		ExecStop=/usr/bin/sleep 20
 		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR /usr/bin/wineserver -k
 		ExecStop=/usr/bin/sleep 10
-		ExecStop=/usr/bin/rm $LOG_TMP
 		TimeoutStartSec=infinity
 		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
 		TimeoutStopSec=120
