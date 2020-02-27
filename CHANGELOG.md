@@ -1,3 +1,13 @@
+Update 2020-02-27
+
+- fixed permissions issue when using -install function
+- fixed -install_packages function overriding ubuntu sources.list file
+- added ubuntu version detection to -install_packages function
+- added -attach argument to script to attach to tmux session of server
+- removed all aliases and added alias hlnsrv that points to the script
+
+-------------------------
+
 Update 2020-02-05
 
 - fixed -help asking for username and thinking it's in installation mode
