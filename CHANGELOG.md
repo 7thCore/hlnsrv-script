@@ -1,3 +1,9 @@
+Update 2020-03-01
+
+- fixed script log deletion
+
+-------------------------
+
 Update 2020-02-27
 
 - fixed permissions issue when using -install function
