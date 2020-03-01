@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202002271217"
+export VERSION="202003011510"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -104,6 +104,7 @@ BCKP_DEST="$BCKP_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #How backups are
 
 #Log configuration
 export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
+export LOG_DIR_ALL="/home/$USER/logs"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
 export LOG_TMP="/tmp/$USER-$SERVICE_NAME-tmux.log"
 
@@ -130,10 +131,9 @@ script_logs() {
 script_del_logs() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs: $LOG_DELOLD days old." | tee -a "$LOG_SCRIPT"
 	#Delete old logs
-	find $LOG_DIR/* -mtime +$LOG_DELOLD -exec rm -rf {} \;
+	find $LOG_DIR_ALL/* -mtime +$LOG_DELOLD -delete
 	#Delete empty folders
-	#find $LOG_DIR -type d 2> /dev/null -empty -exec rm -rf {} \;
-	find $BCKP_DIR/ -type d -empty -delete
+	find $LOG_DIR_ALL/ -type d -empty -delete
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old logs) Deleting old logs complete." | tee -a "$LOG_SCRIPT"
 }
 
