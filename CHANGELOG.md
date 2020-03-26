@@ -1,3 +1,9 @@
+Update 2020-03-26
+
+- fixed config file generation during installation for email and discord notifications
+
+-------------------------
+
 Update 2020-03-01
 
 - fixed script log deletion
