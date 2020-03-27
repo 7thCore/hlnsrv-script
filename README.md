@@ -63,7 +63,7 @@ This script creates a new non-sudo enabled user and installes the game in a fold
 
 I will add suport for the next Ubuntu LTS version when it's released.
 
-The script can, in theory run on any systemd-enabled distro. So if you are not using Arch Linux or Ubuntu 19.10 I suggest you check your distro's wiki on how to install the required packages. The script can, in theory install packages for any Ubuntu version, but the repositories for old versions of Ubuntu might have outdated packages and cause problems.
+The script can, in theory run on any systemd-enabled distro. So if you are not using any of the above listed distros I suggest you check your distro's wiki on how to install the required packages. The script can, in theory install packages for any Ubuntu version, but the repositories for old versions of Ubuntu might have outdated packages and cause problems.
 
 -------------------------
 
