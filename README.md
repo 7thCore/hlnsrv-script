@@ -117,7 +117,7 @@ Make it executable:
 
 **Installation:**
 
-If you wish you can have the script install the required packages with (Only for Arch Linux & Ubuntu 19.10):
+If you wish you can have the script install the required packages with (only for supported distros):
 
 `sudo ./hlnsrv-script.bash -install_packages`
 
