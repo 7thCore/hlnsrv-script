@@ -1305,6 +1305,8 @@ script_install() {
 			tmpfs				   /mnt/tmpfs		tmpfs		   rw,size=$TMPFS_SIZE,gid=$(cat /etc/group | grep users | grep -o '[[:digit:]]*'),mode=0777	0 0
 			EOF
 		fi
+	else
+		TMPFS_ENABLE="0"
 	fi
 	
 	echo ""
