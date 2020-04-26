@@ -1,4 +1,4 @@
-# Using the scipt with systemd-nspawn
+# Using the script with systemd-nspawn
 Instructions for setting up systemd-nspawn containers for 7thCore's scripts
 
 -------------------------
