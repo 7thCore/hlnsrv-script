@@ -126,8 +126,6 @@ Shutdown the container with:
 
 ***Ubuntu container***
 
-For a Ubuntu container you will need the [debootstrap](https://www.archlinux.org/packages/?name=debootstrap) and the [ubuntu-keyring](https://www.archlinux.org/packages/?name=ubuntu-keyring) package.
-
 Create a container with the following commands:
 
 `cd /var/lib/machines`
