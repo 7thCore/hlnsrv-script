@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202004242125"
+export VERSION="202005022237"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -1423,11 +1423,7 @@ script_install_packages() {
 				wget -nc https://dl.winehq.org/wine-builds/winehq.key
 				sudo apt-key add winehq.key
 				
-				if [[ "$UBUNTU_CODENAME" == "focal" ]]; then
-					sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ bionic main"
-				else
-					sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $UBUNTU_CODENAME main"
-				fi
+				sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $UBUNTU_CODENAME main"
 				
 				#Check for updates and update local repo database
 				sudo apt update
