@@ -1,3 +1,11 @@
+Update 2020-06-18
+
+- added Debian 10 (Buster) support
+- added error message if trying to install packages on non supported distro
+- fixed a problem with the game and save not being backed up and restored when rebuilding prefix
+
+-------------------------
+
 Update 2020-05-02
 
 - updated Ubuntu 20.04 LTS support (wine repo)
