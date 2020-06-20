@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202006182345"
+export VERSION="202006202321"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -925,7 +925,11 @@ script_install_services() {
 		INSTALL_SYSTEMD_SERVICES_STATE="1"
 	fi
 	
-	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then		
+	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
+		if [ ! -d "/home/$USER/.config/systemd/user" ]; then
+			mkdir -p /home/$USER/.config/systemd/user
+		fi
+		
 		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
 			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service
 		fi
@@ -1109,7 +1113,7 @@ script_install_services() {
 		
 		[Service]
 		Type=oneshot
-		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -send_crash_email
+		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_crash
 		EOF
 	fi
 	
@@ -1773,10 +1777,9 @@ script_install() {
 	
 	sudo loginctl enable-linger $USER
 	
-	if [ -d /var/lib/systemd/linger/$USER ]; then
+	if [ ! -f /var/lib/systemd/linger/$USER ]; then
 		sudo mkdir -p /var/lib/systemd/linger/
 		sudo touch /var/lib/systemd/linger/$USER
-		sudo mkdir -p /home/$USER/.config/systemd/user
 	fi
 	
 	echo "Enabling services"
