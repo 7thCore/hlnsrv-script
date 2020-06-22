@@ -320,7 +320,7 @@ script_send_notification_stop_complete() {
 #Systemd service sends email if email notifications for crashes enabled
 script_send_notification_crash() {
 	script_logs
-	if [ !-d "$CRASH_DIR" ]; then
+	if [ ! -d "$CRASH_DIR" ]; then
 		mkdir -p "$CRASH_DIR"
 	fi
 	
