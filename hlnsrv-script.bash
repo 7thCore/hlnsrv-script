@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202006202321"
+export VERSION="202006221628"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -110,6 +110,7 @@ export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
 export LOG_DIR_ALL="/home/$USER/logs"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
 export LOG_TMP="/tmp/$USER-$SERVICE_NAME-tmux.log"
+export CRASH_DIR="/home/$USER/logs/crashes/$(date +"%Y-%m-%d_%H-%M")"
 
 #-------Do not edit anything beyond this line-------
 
@@ -229,7 +230,7 @@ script_enable_services() {
 script_enable_services_manual() {
 	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) This will enable all script services. The server will be enabled." | tee -a "$LOG_SCRIPT"
-	read -p "Are you sure you want to disable all services? (y/n): " ENABLE_SCRIPT_SERVICES
+	read -p "Are you sure you want to enable all services? (y/n): " ENABLE_SCRIPT_SERVICES
 	if [[ "$ENABLE_SCRIPT_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		script_enable_services
 	elif [[ "$ENABLE_SCRIPT_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
@@ -319,11 +320,17 @@ script_send_notification_stop_complete() {
 #Systemd service sends email if email notifications for crashes enabled
 script_send_notification_crash() {
 	script_logs
+	if [ !-d "$CRASH_DIR" ]; then
+		mkdir -p "$CRASH_DIR"
+	fi
+	
+	systemctl --user status $SERVICE > $CRASH_DIR/service_log.txt
+	zip -j $CRASH_DIR/service_logs.zip $CRASH_DIR/service_log.txt
+	zip -j $CRASH_DIR/script_logs.zip $LOG_SCRIPT
+	rm $CRASH_DIR/service_log.txt
+	
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
-		systemctl --user status $SERVICE > $LOG_DIR/service_log.txt
-		zip -j $LOG_DIR/service_logs.zip $LOG_DIR/service_log.txt
-		zip -j $LOG_DIR/script_logs.zip $LOG_SCRIPT
-		mail -a $LOG_DIR/service_logs.zip -a $LOG_DIR/script_logs.zip -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
+		mail -a $CRASH_DIR/service_logs.zip -a $CRASH_DIR/script_logs.zip -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
 		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the logs for more information.
 		
 		Attachment contents:
@@ -335,12 +342,13 @@ script_send_notification_crash() {
 		Contact the script developer 7thCore on discord for help regarding any problems the script may have caused.
 		EOF
 	fi
+	
 	if [[ "$DISCORD_CRASH" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"Notification: The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Contact an admin for further information. Time of crash: $(date +"%d.%m.%Y %H:%M:%S")\"}" "$DISCORD_WEBHOOK"
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please review your logs located in $CRASH_DIR.\"}" "$DISCORD_WEBHOOK"
 		done < $SCRIPT_DIR/discord_webhooks.txt
 	fi
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs located in $CRASH_DIR." | tee -a "$LOG_SCRIPT"
 }
 
 #Sync server files from ramdisk to hdd/ssd
