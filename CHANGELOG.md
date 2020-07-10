@@ -1,3 +1,15 @@
+Update 2020-07-10
+
+- added log files generation about wine errors
+- tmux config will now be auto generated before service start and deleted after service stop. No rebuilds required for tmux
+
+Existing users need to stop the server with systemctl --user stop isrsrv-tmpfs.service or isrsrv.service
+Existing users need to update the script and execute the following paramerers to rebuild updated functions:
+
+- -rebuild_services
+
+-------------------------
+
 Update 2020-06-18
 
 - added Debian 10 (Buster) support
