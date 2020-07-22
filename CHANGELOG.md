@@ -1,9 +1,17 @@
+Update 2020-07-22
+
+- fixed systemd service bugs
+
+Existing users need to stop the server and rebuild the service files with -rebuild_services
+
+-------------------------
+
 Update 2020-07-10
 
 - added log files generation about wine errors
 - tmux config will now be auto generated before service start and deleted after service stop. No rebuilds required for tmux
 
-Existing users need to stop the server with systemctl --user stop isrsrv-tmpfs.service or isrsrv.service
+Existing users need to stop the server with systemctl --user stop hlnsrv-tmpfs.service or hlnsrv.service
 Existing users need to update the script and execute the following paramerers to rebuild updated functions:
 
 - -rebuild_services
