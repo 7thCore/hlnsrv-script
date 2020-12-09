@@ -1,3 +1,10 @@
+Update 2020-12-09
+
+- install_packages will now install wine-stable instead of wine-staging for Ubuntu and Debian
+- added support for Ubuntu 20.10 (Groovy Gorilla)
+
+-------------------------
+
 Update 2020-07-22
 
 - fixed systemd service bugs

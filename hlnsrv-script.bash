@@ -2,7 +2,7 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202007221311"
+export VERSION="202012090456"
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
@@ -1322,6 +1322,10 @@ script_diagnostics() {
 	
 	if [ -d "/home/$USER/server" ]; then
 		echo "Server folder present: Yes"
+		echo ""
+		echo "List of installed applications in the prefix:"
+		env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR wine uninstaller --list
+		echo ""
 	else
 		echo "Server folder present: No"
 	fi
@@ -1412,7 +1416,7 @@ script_install_packages() {
 			#Get codename
 			UBUNTU_CODENAME=$(cat /etc/os-release | grep "^UBUNTU_CODENAME=" | cut -d = -f2)
 			
-			if [[ "$UBUNTU_CODENAME" == "bionic" || "$UBUNTU_CODENAME" == "eoan" || "$UBUNTU_CODENAME" == "focal" ]]; then
+			if [[ "$UBUNTU_CODENAME" == "bionic" || "$UBUNTU_CODENAME" == "eoan" || "$UBUNTU_CODENAME" == "focal" || "$UBUNTU_CODENAME" == "groovy" ]]; then
 				#Add i386 architecture support
 				apt install --yes sudo gnupg
 				sudo dpkg --add-architecture i386
@@ -1448,7 +1452,7 @@ script_install_packages() {
 				sudo apt update
 				
 				#Install packages and enable services
-				sudo apt install --yes --install-recommends winehq-staging
+				sudo apt install --yes --install-recommends winehq-stable
 				sudo apt install --yes --install-recommends steamcmd
 				sudo apt install --yes rsync cabextract unzip p7zip wget curl tmux postfix zip jq xvfb samba winbind
 				sudo systemctl enable smbd nmbd winbind
@@ -1459,7 +1463,7 @@ script_install_packages() {
 				sudo mv winetricks /usr/local/bin/
 				sudo chmod +x /usr/local/bin/winetricks
 			else
-				echo "Error: This version of Ubuntu is not supported. Supported versions are: Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa)"
+				echo "Error: This version of Ubuntu is not supported. Supported versions are: Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla)"
 				echo "Exiting"
 				exit 1
 			fi
@@ -1503,7 +1507,7 @@ script_install_packages() {
 				#Install packages and enable services
 				sudo apt install --yes libfaudio0:i386
 				sudo apt install --yes libfaudio0
-				sudo apt install --yes --install-recommends winehq-staging
+				sudo apt install --yes --install-recommends winehq-stable
 				sudo apt install --yes --install-recommends steamcmd
 				sudo apt install --yes rsync cabextract unzip p7zip wget curl postfix zip jq xvfb samba winbind
 				sudo systemctl enable smbd nmbd winbind
@@ -1519,18 +1523,18 @@ script_install_packages() {
 				exit 1
 			fi
 		else
-			echo "Error: This distro is not supported. This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Debian 10 (Buster). If you want to try the script on your distro, install the packages manually. Check the readme for required package versions."
+			echo "Error: This distro is not supported. This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla), Debian 10 (Buster). If you want to try the script on your distro, install the packages manually. Check the readme for required package versions."
 			echo "Exiting"
 			exit 1
 		fi
 		
 		if [[ "$DISTRO" == "arch" ]]; then
-			echo "Arch Linux users have to install SteamCMD with an AUR tool."
+			echo "Arch Linux users have to install SteamCMD with an AUR tool or manually download it."
 		fi
 		echo "Package installation complete."
 	else
 		echo "os-release file not found. Is this distro supported?"
-		echo "This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa)"
+		echo "This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla), Debian 10 (Buster)"
 		exit 1
 	fi
 }
