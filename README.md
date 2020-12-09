@@ -57,6 +57,8 @@ This script creates a new non-sudo enabled user and installes the game in a fold
 
 - Arch Linux
 
+- Ubuntu 20.10
+
 - Ubuntu 20.04 LTS
 
 - Ubuntu 19.10
@@ -153,7 +155,6 @@ After the installation finishes you can log in to the newly created user and fin
 | `-deloldsavefiles` | Delete the server's save game (leaves the latest number files specefied in the script conf file |
 | `-change_branch` | Changes the game branch in use by the server (public,experimental,legacy and so on) |
 | `-install_aliases` | Installs .bashrc aliases for easy access to the server tmux session |
-| `-rebuild_tmux_config` | Reinstalls the tmux configuration file from the script. Usefull if any tmux configuration updates occoured. |
 | `-rebuild_services` | Reinstalls the systemd services from the script. Usefull if any service updates occoured |
 | `-rebuild_prefix` | Reinstalls the wine prefix. Usefull if any wine prefix updates occoured |
 | `-disable_services` | Disables all services. The server and the script will not start up on boot anymore. |
