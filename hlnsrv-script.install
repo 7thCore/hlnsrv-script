@@ -1,0 +1,9 @@
+post_install() {
+  getent group hlnsrv >/dev/null || groupadd --system hlnsrv
+  getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv \
+    -d /srv/hlnsrv/ -s /bin/bash hlnsrv
+
+  chown -R hlnsrv:hlnsrv srv/hlnsrv
+  loginctl enable-linger hlnsrv
+  systemctl start user@$(id -u hlnsrv).service
+}
