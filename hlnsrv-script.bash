@@ -2,76 +2,72 @@
 
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
-export VERSION="202012090456"
 
 #Basics
-export NAME="HlnSrv" #Name of the tmux session
-if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
-	USER="$(whoami)"
-else
-	if [[ "-install" == "$1" ]]; then
-		echo "WARNING: Installation mode"
-		read -p "Please enter username (leave empty for hellion):" USER #Enter desired username that will be used when creating the new user
-		USER=${USER:=hellion} #If no username was given, use default
-	elif [[ "-install_packages" == "$1" ]]; then
-		echo "Commencing installation of required packages."
-	elif [[ "-help" == "$1" ]]; then
-		echo "Displaying help message"
-	else
-		echo "Error: This script, once installed, is meant to be used by the user it created and should not under any circumstances be used with sudo or by the root user for the $1 function. Only -install and -install_packages work with sudo/root. Log in to your created user (default: hellion) with sudo -i -u hellion and execute your script without root from the coresponding scripts folder."
-		exit 1
-	fi
-fi
+NAME="HlnSrv" #Name of the tmux session
+VERSION="1.0-1" #Package and script version
 
 #Server configuration
-SERVICE_NAME="hlnsrv" #Name of the service files, script and script log
-SRV_DIR="/home/$USER/server" #Location of the server located on your hdd/ssd
+SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
+SRV_DIR="/srv/$SERVICE_NAME/server" #Location of the server located on your hdd/ssd
 SCRIPT_NAME="$SERVICE_NAME-script.bash" #Script name
-SCRIPT_DIR="/home/$USER/scripts" #Location of this script
-UPDATE_DIR="/home/$USER/updates" #Location of update information for the script's automatic update feature
+CONFIG_DIR="/srv/$SERVICE_NAME/config" #Location of this script
+UPDATE_DIR="/srv/$SERVICE_NAME/updates" #Location of update information for the script's automatic update feature
 
-if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
-	#Steamcmd
-	BETA_BRANCH_ENABLED=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep beta_branch_enabled= | cut -d = -f2) #Beta branch enabled?
-	BETA_BRANCH_NAME=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep beta_branch_name= | cut -d = -f2) #Beta branch name
-
-	#Email configuration
-	EMAIL_SENDER=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_sender= | cut -d = -f2) #Send emails from this address
-	EMAIL_RECIPIENT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_recipient= | cut -d = -f2) #Send emails to this address
-	EMAIL_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update= | cut -d = -f2) #Send emails when server updates
-	EMAIL_UPDATE_SCRIPT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_update_script= | cut -d = -f2) #Send notification when the script updates
-	EMAIL_START=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_start= | cut -d = -f2) #Send emails when the server starts up
-	EMAIL_STOP=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_stop= | cut -d = -f2) #Send emails when the server shuts down
-	EMAIL_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep email_crash= | cut -d = -f2) #Send emails when the server crashes
-
-	#Discord configuration
-	DISCORD_UPDATE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_update= | cut -d = -f2) #Send notification when the server updates
-	DISCORD_UPDATE_SCRIPT=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_update_script= | cut -d = -f2) #Send notification when the script updates
-	DISCORD_START=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_start= | cut -d = -f2) #Send notifications when the server starts
-	DISCORD_STOP=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_stop= | cut -d = -f2) #Send notifications when the server stops
-	DISCORD_CRASH=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep discord_crash= | cut -d = -f2) #Send notifications when the server crashes
-
-	#Ramdisk configuration
-	TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable= | cut -d = -f2) #Get configuration for tmpfs
-
-	#Save game configuration
-	SAVE_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep save_delold= | cut -d = -f2) #How many latest save files should the script leave when deleting them.
-
-	#Backup configuration
-	BCKP_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep bckp_delold= | cut -d = -f2) #Delete old backups.
-
-	#Log configuration
-	LOG_DELOLD=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep log_delold= | cut -d = -f2) #Delete old logs.
-
-	#Ignore failed startups during update configuration
-	UPDATE_IGNORE_FAILED_ACTIVATIONS=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep update_ignore_failed_startups= | cut -d = -f2)
-
-	#Script updates from github
-	SCRIPT_UPDATES_GITHUB=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep script_updates= | cut -d = -f2) #Get configuration for script updates.
+#Script configuration
+if [ -f "$CONFIG_DIR/$SERVICE_NAME-script.conf" ] ; then
+	TMPFS_ENABLE=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_tmpfs= | cut -d = -f2) #Get configuration for tmpfs
+	BCKP_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_bckp_delold= | cut -d = -f2) #Delete old backups.
+	LOG_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_log_delold= | cut -d = -f2) #Delete old logs.
+	LOG_GAME_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_log_game_delold= | cut -d = -f2) #Delete old game logs.
+	DUMP_GAME_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_dump_game_delold= | cut -d = -f2) #Delete old game dumps.
+	UPDATE_IGNORE_FAILED_ACTIVATIONS=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_update_ignore_failed_startups= | cut -d = -f2) #Ignore failed startups during update configuration
 else
-	if [[ "-install" != "$1" ]] && [[ "-install_packages" != "$1" ]] && [[ "-help" != "$1" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Configuration) Error: The configuration file is missing. Generating missing configuration strings using default values."
-	fi
+	TMPFS_ENABLE=0
+	BCKP_DELOLD=7
+	LOG_DELOLD=7
+	LOG_GAME_DELOLD=7
+	DUMP_GAME_DELOLD=7
+	UPDATE_IGNORE_FAILED_ACTIVATIONS=0
+fi
+
+#Steamcmd configuration
+if [ -f "$CONFIG_DIR/$SERVICE_NAME-steam.conf" ] ; then
+	STEAMCMD_BETA_BRANCH=$(cat $CONFIG_DIR/$SERVICE_NAME-steam.conf | grep steamcmd_beta_branch= | cut -d = -f2) #Beta branch enabled?
+	STEAMCMD_BETA_BRANCH_NAME=$(cat $CONFIG_DIR/$SERVICE_NAME-steam.conf | grep steamcmd_beta_branch_name= | cut -d = -f2) #Beta branch name
+else
+	STEAMCMD_BETA_BRANCH="0"
+	STEAMCMD_BETA_BRANCH_NAME="0"
+fi
+
+#Email configuration
+if [ -f "$CONFIG_DIR/$SERVICE_NAME-email.conf" ] ; then
+	EMAIL_SENDER=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_sender= | cut -d = -f2) #Send emails from this address
+	EMAIL_RECIPIENT=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_recipient= | cut -d = -f2) #Send emails to this address
+	EMAIL_UPDATE=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_update= | cut -d = -f2) #Send emails when server updates
+	EMAIL_START=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_start= | cut -d = -f2) #Send emails when the server starts up
+	EMAIL_STOP=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_stop= | cut -d = -f2) #Send emails when the server shuts down
+	EMAIL_CRASH=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_crash= | cut -d = -f2) #Send emails when the server crashes
+else
+	EMAIL_SENDER="0"
+	EMAIL_RECIPIENT="0"
+	EMAIL_UPDATE="0"
+	EMAIL_START="0"
+	EMAIL_STOP="0"
+	EMAIL_CRASH="0"
+fi
+
+#Discord configuration
+if [ -f "$CONFIG_DIR/$SERVICE_NAME-discord.conf" ] ; then
+	DISCORD_UPDATE=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_update= | cut -d = -f2) #Send notification when the server updates
+	DISCORD_START=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_start= | cut -d = -f2) #Send notifications when the server starts
+	DISCORD_STOP=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_stop= | cut -d = -f2) #Send notifications when the server stops
+	DISCORD_CRASH=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_crash= | cut -d = -f2) #Send notifications when the server crashes
+else
+	DISCORD_UPDATE="0"
+	DISCORD_START="0"
+	DISCORD_STOP="0"
+	DISCORD_CRASH="0"
 fi
 
 #App id of the steam game
@@ -83,34 +79,25 @@ WINE_PREFIX_GAME_DIR="drive_c/Games/Hellion" #Server executable directory
 WINE_PREFIX_GAME_EXE="HELLION_Dedicated.exe" #Server executable
 WINE_PREFIX_GAME_CONFIG="drive_c/Games/Hellion" #Server save and configuration location
 
-#Ramdisk configuration
-TMPFS_ENABLE=$(cat $SCRIPT_DIR/$SERVICE_NAME-config.conf | grep tmpfs_enable | cut -d = -f2) #Get configuration for tmpfs
-TMPFS_DIR="/mnt/tmpfs/$USER" #Locaton of your tmpfs partition.
-
-if [ "$EUID" -ne "0" ]; then #Check if script executed as root and assign the backup source dir.
-	#TmpFs/hdd variables
-	if [[ "$TMPFS_ENABLE" == "1" ]]; then
-		BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
-		SERVICE="$SERVICE_NAME-tmpfs.service" #TmpFs service file name
-	elif [[ "$TMPFS_ENABLE" == "0" ]]; then
-		BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
-		SERVICE="$SERVICE_NAME.service" #Hdd/ssd service file name
-	fi
-else
+#TmpFs/hdd variables
+if [[ "$TMPFS_ENABLE" == "1" ]]; then
+	BCKP_SRC_DIR="$TMPFS_DIR/drive_c/Games/Hellion" #Application data of the tmpfs
+	SERVICE="$SERVICE_NAME-tmpfs" #TmpFs service file name
+elif [[ "$TMPFS_ENABLE" == "0" ]]; then
 	BCKP_SRC_DIR="$SRV_DIR/drive_c/Games/Hellion" #Application data of the hdd/ssd
+	SERVICE="$SERVICE_NAME" #Hdd/ssd service file name
 fi
 
 #Backup configuration
 BCKP_SRC="*" #What files to backup, * for all
-BCKP_DIR="/home/$USER/backups" #Location of stored backups
+BCKP_DIR="/home/$SERVICE_NAME/backups" #Location of stored backups
 BCKP_DEST="$BCKP_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #How backups are sorted, by default it's sorted in folders by month and day
 
 #Log configuration
-export LOG_DIR="/home/$USER/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
-export LOG_DIR_ALL="/home/$USER/logs"
+export LOG_DIR="/srv/$SERVICE_NAME/logs/$(date +"%Y")/$(date +"%m")/$(date +"%d")"
+export LOG_DIR_ALL="/srv/$SERVICE_NAME/logs"
 export LOG_SCRIPT="$LOG_DIR/$SERVICE_NAME-script.log" #Script log
-export LOG_TMP="/tmp/$USER-$SERVICE_NAME-tmux.log"
-export CRASH_DIR="/home/$USER/logs/crashes/$(date +"%Y-%m-%d_%H-%M")"
+export CRASH_DIR="/srv/$SERVICE_NAME/logs/crashes/$(date +"%Y-%m-%d_%H-%M")"
 
 #-------Do not edit anything beyond this line-------
 
@@ -128,6 +115,8 @@ script_logs() {
 		mkdir -p $LOG_DIR
 	fi
 }
+
+#---------------------------
 
 #Deletes old files
 script_remove_old_files() {
@@ -148,6 +137,8 @@ script_remove_old_files() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Remove old files) Removal of old files complete." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Prints out if the server is running
 script_status() {
 	script_logs
@@ -164,10 +155,14 @@ script_status() {
 	fi
 }
 
+#---------------------------
+
 #Attaches to the server tmux session
 script_attach() {
-	tmux -L $USER-tmux.sock attach -t $NAME
+	tmux -L $SERVICE_NAME-tmux.sock attach -t $NAME
 }
+
+#---------------------------
 
 #Disable all script services
 script_disable_services() {
@@ -190,6 +185,8 @@ script_disable_services() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) Services successfully disabled." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Disables all script services, available to the user
 script_disable_services_manual() {
 	script_logs
@@ -201,6 +198,8 @@ script_disable_services_manual() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Disable services) Disable services canceled." | tee -a "$LOG_SCRIPT"
 	fi
 }
+
+#---------------------------
 
 # Enable script services by reading the configuration file
 script_enable_services() {
@@ -226,6 +225,8 @@ script_enable_services() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) Services successfully Enabled." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 # Enable script services by reading the configuration file, available to the user
 script_enable_services_manual() {
 	script_logs
@@ -237,6 +238,8 @@ script_enable_services_manual() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Enable services) Enable services canceled." | tee -a "$LOG_SCRIPT"
 	fi
 }
+
+#---------------------------
 
 #Disables all script services an re-enables them by reading the configuration file
 script_reload_services() {
@@ -253,11 +256,13 @@ script_reload_services() {
 	fi
 }
 
+#---------------------------
+
 #Systemd service sends notification if notifications for start enabled
 script_send_notification_start_initialized() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was initiated at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -269,11 +274,13 @@ script_send_notification_start_initialized() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup initialized." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Systemd service sends notification if notifications for start enabled
 script_send_notification_start_complete() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was completed at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -285,11 +292,13 @@ script_send_notification_start_complete() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup complete." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_initialized() {
 	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -301,11 +310,13 @@ script_send_notification_stop_initialized() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Systemd service sends notification if notifications for stop enabled
 script_send_notification_stop_complete() {
 	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -316,6 +327,8 @@ script_send_notification_stop_complete() {
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete." | tee -a "$LOG_SCRIPT"
 }
+
+#---------------------------
 
 #Systemd service sends email if email notifications for crashes enabled
 script_send_notification_crash() {
@@ -331,7 +344,7 @@ script_send_notification_crash() {
 	rm $CRASH_DIR/service_log.txt
 	
 	if [[ "$EMAIL_CRASH" == "1" ]]; then
-		mail -a $CRASH_DIR/service_logs.zip -a $CRASH_DIR/script_logs.zip -a $CRASH_DIR/wine_logs.zip -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
+		mail -a $CRASH_DIR/service_logs.zip -a $CRASH_DIR/script_logs.zip -a $CRASH_DIR/wine_logs.zip -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Crash" $EMAIL_RECIPIENT <<- EOF
 		The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please check the logs for more information.
 		
 		Attachment contents:
@@ -353,6 +366,8 @@ script_send_notification_crash() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs located in $CRASH_DIR." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Move the wine log and add date and time to it after service shutdown
 script_move_wine_log() {
 	script_logs
@@ -362,6 +377,8 @@ script_move_wine_log() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Move wine log) Nothing to move." | tee -a "$LOG_SCRIPT"
 	fi
 }
+
+#---------------------------
 
 #Sync server files from ramdisk to hdd/ssd
 script_sync() {
@@ -377,6 +394,8 @@ script_sync() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Sync) Server does not have tmpfs enabled." | tee -a "$LOG_SCRIPT"
 	fi
 }
+
+#---------------------------
 
 #Start the server
 script_start() {
@@ -420,6 +439,8 @@ script_start() {
 	fi
 }
 
+#---------------------------
+
 #Start the server ignorring failed states
 script_start_ignore_errors() {
 	script_logs
@@ -459,6 +480,8 @@ script_start_ignore_errors() {
 	fi
 }
 
+#---------------------------
+
 #Stop the server
 script_stop() {
 	script_logs
@@ -476,6 +499,8 @@ script_stop() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server is deactivated." | tee -a "$LOG_SCRIPT"
 	fi
 }
+
+#---------------------------
 
 #Restart the server
 script_restart() {
@@ -496,6 +521,8 @@ script_restart() {
 	fi
 }
 
+#---------------------------
+
 #Deletes old save games
 script_deloldsavefiles() {
 	script_logs
@@ -508,6 +535,8 @@ script_deloldsavefiles() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old save files) Deleting old save files complete." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Deletes old backups
 script_deloldbackup() {
 	script_logs
@@ -519,6 +548,8 @@ script_deloldbackup() {
 	find $BCKP_DIR/ -type d -empty -delete
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Delete old backup) Deleting old backups complete." | tee -a "$LOG_SCRIPT"
 }
+
+#---------------------------
 
 #Backs up the server
 script_backup() {
@@ -534,6 +565,8 @@ script_backup() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Backup) Backup complete." | tee -a "$LOG_SCRIPT"
 }
 
+#---------------------------
+
 #Automaticly backs up the server and deletes old backups
 script_autobackup() {
 	script_logs
@@ -546,6 +579,8 @@ script_autobackup() {
 		script_deloldbackup
 	fi
 }
+
+#---------------------------
 
 #Delete the savegame from the server
 script_delete_save() {
@@ -577,6 +612,8 @@ script_delete_save() {
 	fi
 }
 
+#---------------------------
+
 #Change the steam branch of the app
 script_change_branch() {
 	script_logs
@@ -592,39 +629,48 @@ script_change_branch() {
 				echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Change branch) Clearing game installation." | tee -a "$LOG_SCRIPT"
 				rm -rf $SRV_DIR/$WINE_PREFIX_GAME_DIR/*
 			fi
-			if [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
+			if [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
 				PUBLIC_BRANCH="0"
-			elif [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
+			elif [[ "$STEAMCMD_BETA_BRANCH" == "0" ]]; then
 				PUBLIC_BRANCH="1"
 			fi
 			echo "Current configuration:"
 			echo 'Public branch: '"$PUBLIC_BRANCH"
-			echo 'Beta branch enabled: '"$BETA_BRANCH_ENABLED"
-			echo 'Beta branch name: '"$BETA_BRANCH_NAME"
+			echo 'Beta branch enabled: '"$STEAMCMD_BETA_BRANCH"
+			echo 'Beta branch name: '"$STEAMCMD_BETA_BRANCH_NAME"
 			echo ""
 			read -p "Public branch or beta branch? (public/beta): " SET_BRANCH_STATE
 			echo ""
 			if [[ "$SET_BRANCH_STATE" =~ ^([bB][eE][tT][aA]|[bB])$ ]]; then
-				BETA_BRANCH_ENABLED="1"
-				echo "Look up beta branch names at https://steamdb.info/app/$APPID/depots/"
-				echo "Name example: experimental"
-				read -p "Enter beta branch name: " BETA_BRANCH_NAME
+				STEAMCMD_BETA_BRANCH="1"
+				echo "Look up beta branch names at https://steamdb.info/app/363360/depots/"
+				echo "Name example: ir_0.2.8"
+				read -p "Enter beta branch name: " STEAMCMD_BETA_BRANCH_NAME
 			elif [[ "$SET_BRANCH_STATE" =~ ^([pP][uU][bB][lL][iI][cC]|[pP])$ ]]; then
-				BETA_BRANCH_ENABLED="0"
-				BETA_BRANCH_NAME="none"
+				STEAMCMD_BETA_BRANCH="0"
+				STEAMCMD_BETA_BRANCH_NAME="none"
 			fi
-			sed -i '/beta_branch_enabled/d' $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			sed -i '/beta_branch_name/d' $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			echo 'beta_branch_enabled='"$BETA_BRANCH_ENABLED" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			echo 'beta_branch_name='"$BETA_BRANCH_NAME" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			if [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
-				steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.buildid
-				steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.timeupdated
-				steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta validate +quit
-			elif [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-				steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.buildid
-				steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/available.timeupdated
-				steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta $BETA_BRANCH_NAME validate +quit
+			sed -i '/beta_branch_enabled/d' $CONFIG_DIR/$SERVICE_NAME-config.conf
+			sed -i '/beta_branch_name/d' $CONFIG_DIR/$SERVICE_NAME-config.conf
+			echo 'beta_branch_enabled='"$STEAMCMD_BETA_BRANCH" >> $CONFIG_DIR/$SERVICE_NAME-config.conf
+			echo 'beta_branch_name='"$STEAMCMD_BETA_BRANCH_NAME" >> $CONFIG_DIR/$SERVICE_NAME-config.conf
+
+			if [[ "$STEAMCMD_BETA_BRANCH" == "0" ]]; then
+				INSTALLED_BUILDID=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_BUILDID" > $UPDATE_DIR/installed.buildid
+
+				INSTALLED_TIME=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_TIME" > $UPDATE_DIR/installed.timeupdated
+
+				steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID validate +quit
+			elif [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+				INSTALLED_BUILDID=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_BUILDID" > $UPDATE_DIR/installed.buildid
+
+				INSTALLED_TIME=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_TIME" > $UPDATE_DIR/installed.timeupdated
+
+				steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID -beta $STEAMCMD_BETA_BRANCH_NAME validate +quit
 			fi
 			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Change branch) Server branch change complete." | tee -a "$LOG_SCRIPT"
 		elif [[ "$CHANGE_SERVER_BRANCH" =~ ^([nN][oO]|[nN])$ ]]; then
@@ -635,101 +681,106 @@ script_change_branch() {
 	fi
 }
 
+#---------------------------
+
 #Check for updates. If there are updates available, shut down the server, update it and restart it.
 script_update() {
 	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Initializing update check." | tee -a "$LOG_SCRIPT"
-	if [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Beta branch enabled. Branch name: $BETA_BRANCH_NAME" | tee -a "$LOG_SCRIPT"
+	if [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Beta branch enabled. Branch name: $STEAMCMD_BETA_BRANCH_NAME" | tee -a "$LOG_SCRIPT"
 	fi
-	
+
 	if [ ! -f $UPDATE_DIR/installed.buildid ] ; then
 		touch $UPDATE_DIR/installed.buildid
 		echo "0" > $UPDATE_DIR/installed.buildid
 	fi
-	
+
 	if [ ! -f $UPDATE_DIR/installed.timeupdated ] ; then
 		touch $UPDATE_DIR/installed.timeupdated
 		echo "0" > $UPDATE_DIR/installed.timeupdated
 	fi
-	
+
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Removing Steam/appcache/appinfo.vdf" | tee -a "$LOG_SCRIPT"
-	rm -rf "/home/$USER/.steam/appcache/appinfo.vdf"
-	
+	rm -rf "/srv/$SERVICE_NAME/.steam/appcache/appinfo.vdf"
+
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Connecting to steam servers." | tee -a "$LOG_SCRIPT"
-	
-	if [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
+
+	if [[ "$STEAMCMD_BETA_BRANCH" == "0" ]]; then
 		AVAILABLE_BUILDID=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
 		AVAILABLE_TIME=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
-	elif [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-		AVAILABLE_BUILDID=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
-		AVAILABLE_TIME=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+	elif [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+		AVAILABLE_BUILDID=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+		AVAILABLE_TIME=$(steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
 	fi
-	
+
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Received application info data." | tee -a "$LOG_SCRIPT"
-	
+
 	INSTALLED_BUILDID=$(cat $UPDATE_DIR/installed.buildid)
 	INSTALLED_TIME=$(cat $UPDATE_DIR/installed.timeupdated)
-	
+
 	if [ "$AVAILABLE_TIME" -gt "$INSTALLED_TIME" ]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) New update detected." | tee -a "$LOG_SCRIPT"
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Installed: BuildID: $INSTALLED_BUILDID, TimeUpdated: $INSTALLED_TIME" | tee -a "$LOG_SCRIPT"
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Available: BuildID: $AVAILABLE_BUILDID, TimeUpdated: $AVAILABLE_TIME" | tee -a "$LOG_SCRIPT"
-		
+
 		if [[ "$DISCORD_UPDATE" == "1" ]]; then
 			while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 				curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) New update detected. Installing update.\"}" "$DISCORD_WEBHOOK"
-			done < $SCRIPT_DIR/discord_webhooks.txt
+			done < $CONFIG_DIR/discord_webhooks.txt
 		fi
-		
-		if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-			sleep 1
-			WAS_ACTIVE="1"
-			script_stop
-			sleep 1
-		fi
-		
+
+		IFS=","
+		for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager $SERVICE@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
+			if [[ "$(systemctl --user show -p ActiveState --value $SERVER_SERVICE)" == "active" ]]; then
+				WAS_ACTIVE=("$SERVER_SERVICE" "${WAS_ACTIVE[@]}")
+			fi
+		done
+		sleep 1
+		script_stop
+		sleep 1
+
 		if [[ "$TMPFS_ENABLE" == "1" ]]; then
+			rsync -aAXv --info=progress2 $TMPFS_DIR/ $SRV_DIR
 			rm -rf $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
 		fi
-		
+
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Updating..." | tee -a "$LOG_SCRIPT"
-		
-		if [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
-			steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID validate +quit
-		elif [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-			steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta $BETA_BRANCH_NAME validate +quit
+
+		if [[ "$STEAMCMD_BETA_BRANCH" == "0" ]]; then
+			steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID validate +quit
+		elif [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+			steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID -beta $STEAMCMD_BETA_BRANCH_NAME validate +quit
 		fi
-		
+
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Update completed." | tee -a "$LOG_SCRIPT"
 		echo "$AVAILABLE_BUILDID" > $UPDATE_DIR/installed.buildid
 		echo "$AVAILABLE_TIME" > $UPDATE_DIR/installed.timeupdated
-		
-		if [ "$WAS_ACTIVE" == "1" ]; then
-			if [[ "$TMPFS_ENABLE" == "1" ]]; then
-				mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
-				mkdir -p $SRV_DIR/$WINE_PREFIX_GAME_DIR
-			elif [[ "$TMPFS_ENABLE" == "0" ]]; then
-				mkdir -p $SRV_DIR/$WINE_PREFIX_GAME_DIR
-			fi
-						sleep 1
-			if [[ "$UPDATE_IGNORE_FAILED_ACTIVATIONS" == "1" ]]; then
-				script_start_ignore_errors
-			else
-				script_start
-			fi
+
+		if [[ "$TMPFS_ENABLE" == "1" ]]; then
+			mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
+			rsync -aAXv --info=progress2 $SRV_DIR/ $TMPFS_DIR
 		fi
-		
+
+		for SERVER_SERVICE in "${WAS_ACTIVE[@]}"; do
+			SERVER_NUMBER=$(echo $SERVER_SERVICE | awk -F '@' '{print $2}' | awk -F '.service' '{print $1}')
+			if [[ "$UPDATE_IGNORE_FAILED_ACTIVATIONS" == "1" ]]; then
+				script_start_ignore_errors $SERVER_NUMBER
+			else
+				script_start $SERVER_NUMBER
+			fi
+		done
+
 		if [[ "$EMAIL_UPDATE" == "1" ]]; then
-			mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Update" $EMAIL_RECIPIENT <<- EOF
+			mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Update" $EMAIL_RECIPIENT <<- EOF
 			Server was updated. Please check the update notes if there are any additional steps to take.
 			EOF
 		fi
-		
+
 		if [[ "$DISCORD_UPDATE" == "1" ]]; then
 			while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 				curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) Server update complete.\"}" "$DISCORD_WEBHOOK"
-			done < $SCRIPT_DIR/discord_webhooks.txt
+			done < $CONFIG_DIR/discord_webhooks.txt
 		fi
 	elif [ "$AVAILABLE_TIME" -eq "$INSTALLED_TIME" ]; then
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Update) No new updates detected." | tee -a "$LOG_SCRIPT"
@@ -737,89 +788,65 @@ script_update() {
 	fi
 }
 
+#---------------------------
+
 #Shutdown any active servers, check the integrity of the server files and restart the servers.
 script_verify_game_integrity() {
 	script_logs
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Integrity check) Initializing integrity check." | tee -a "$LOG_SCRIPT"
-	if [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Integrity check) Beta branch enabled. Branch name: $BETA_BRANCH_NAME" | tee -a "$LOG_SCRIPT"
+	if [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Integrity check) Beta branch enabled. Branch name: $STEAMCMD_BETA_BRANCH_NAME" | tee -a "$LOG_SCRIPT"
 	fi
-	
+
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Integrity check) Removing Steam/appcache/appinfo.vdf" | tee -a "$LOG_SCRIPT"
-	rm -rf "/home/$USER/.steam/appcache/appinfo.vdf"
-	
-	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "active" ]]; then
-		sleep 1
-		WAS_ACTIVE="1"
-		script_stop
-		sleep 1
-	fi
-	
+	rm -rf "/srv/$SERVICE_NAME/.steam/appcache/appinfo.vdf"
+
+	IFS=","
+	for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager $SERVICE@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
+		if [[ "$(systemctl --user show -p ActiveState --value $SERVER_SERVICE)" == "active" ]]; then
+			WAS_ACTIVE=("$SERVER_SERVICE" "${WAS_ACTIVE[@]}")
+		fi
+	done
+	sleep 1
+	script_stop
+	sleep 1
+
 	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		rsync -aAXv --info=progress2 $TMPFS_DIR/ $SRV_DIR
 		rm -rf $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
 	fi
-	
-	if [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
-		steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID validate +quit
-	elif [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-		steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta $BETA_BRANCH_NAME validate +quit
+
+	if [[ "$STEAMCMD_BETA_BRANCH" == "0" ]]; then
+		steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID validate +quit
+	elif [[ "$STEAMCMD_BETA_BRANCH" == "1" ]]; then
+		steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID -beta $STEAMCMD_BETA_BRANCH_NAME validate +quit
 	fi
-	
+
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Integrity check) Integrity check completed." | tee -a "$LOG_SCRIPT"
-	
-	if [ "$WAS_ACTIVE" == "1" ]; then
-		if [[ "$TMPFS_ENABLE" == "1" ]]; then
-			mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
-			mkdir -p $SRV_DIR/$WINE_PREFIX_GAME_DIR
-		elif [[ "$TMPFS_ENABLE" == "0" ]]; then
-			mkdir -p $SRV_DIR/$WINE_PREFIX_GAME_DIR
-		fi
-		sleep 1
-		if [[ "$UPDATE_IGNORE_FAILED_ACTIVATIONS" == "1" ]]; then
-			script_start_ignore_errors
-		else
-			script_start
-		fi
+
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR
+		rsync -aAXv --info=progress2 $SRV_DIR/ $TMPFS_DIR
 	fi
+
+	for SERVER_SERVICE in "${WAS_ACTIVE[@]}"; do
+		SERVER_NUMBER=$(echo $SERVER_SERVICE | awk -F '@' '{print $2}' | awk -F '.service' '{print $1}')
+		if [[ "$UPDATE_IGNORE_FAILED_ACTIVATIONS" == "1" ]]; then
+			script_start_ignore_errors $SERVER_NUMBER
+		else
+			script_start $SERVER_NUMBER
+		fi
+	done
 }
 
-#Install aliases in .bashrc
-script_install_alias() {
-	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
-		script_logs
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
-		read -p "Are you sure you want to install bash aliases into .bashrc? (y/n): " INSTALL_BASHRC_ALIAS
-		if [[ "$INSTALL_BASHRC_ALIAS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-			INSTALL_BASHRC_ALIAS_STATE="1"
-		elif [[ "$INSTALL_BASHRC_ALIAS" =~ ^([nN][oO]|[nN])$ ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc aborted." | tee -a "$LOG_SCRIPT"
-			INSTALL_BASHRC_ALIAS_STATE="0"
-		fi
-	else
-		INSTALL_BASHRC_ALIAS_STATE="1"
-	fi
-	
-	if [[ "$INSTALL_BASHRC_ALIAS_STATE" == "1" ]]; then
-		cat >> /home/$USER/.bashrc <<- EOF
-			alias $SERVICE_NAME="/home/$USER/scripts/$SERVICE_NAME-script.bash"
-		EOF
-	fi
-	
-	if [ "$EUID" -ne "0" ]; then
-		if [[ "$INSTALL_BASHRC_ALIAS_STATE" == "1" ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Install .bashrc aliases) Installation of aliases in .bashrc complete. Re-log for the changes to take effect." | tee -a "$LOG_SCRIPT"
-			echo "Aliases:"
-			echo "$SERVICE_NAME -attach = Attaches to the server console."
-		fi
-	fi
-}
+#---------------------------
 
 #Install tmux configuration for specific server when first ran
 script_server_tmux_install() {
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Server tmux configuration) Installing tmux configuration for server." | tee -a "$LOG_SCRIPT"
-	if [ ! -f /tmp/$USER-$SERVICE_NAME-tmux.conf ]; then
-		touch /tmp/$USER-$SERVICE_NAME-tmux.conf
-		cat > /tmp/$USER-$SERVICE_NAME-tmux.conf <<- EOF
+	if [ ! -f /tmp/$SERVICE_NAME-tmux.conf ]; then
+		touch /tmp/$SERVICE_NAME-tmux.conf
+		cat > /tmp/$SERVICE_NAME-tmux.conf <<- EOF
 		#Tmux configuration
 		set -g activity-action other
 		set -g allow-rename off
@@ -827,8 +854,7 @@ script_server_tmux_install() {
 		set -g base-index 0
 		set -g bell-action any
 		set -g default-command "${SHELL}"
-		#set -g default-terminal "tmux-256color"
-		set -g default-terminal "screen-hack_color"
+		set -g default-terminal "tmux-256color" 
 		set -g default-shell "/bin/bash"
 		set -g default-size "132x42"
 		set -g destroy-unattached off
@@ -886,7 +912,7 @@ script_server_tmux_install() {
 		bind C-a send-prefix
 
 		#Bind C-a r to reload the config file
-		bind-key r source-file /tmp/$USER-$SERVICE_NAME-tmux.conf \; display-message "Config reloaded!"
+		bind-key r source-file /tmp/$SERVICE_NAME-tmux.conf \; display-message "Config reloaded!"
 
 		set-hook -g session-created 'resize-window -y 24 -x 10000'
 		set-hook -g client-attached 'resize-window -y 24 -x 10000'
@@ -909,227 +935,18 @@ script_server_tmux_install() {
 	fi
 }
 
-#Install or reinstall systemd services
-script_install_services() {
-	if [ "$EUID" -ne "0" ]; then #Check if script executed as root and asign the username for the installation process, otherwise use the executing user
-		script_logs
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation commencing. Waiting on user configuration." | tee -a "$LOG_SCRIPT"
-		read -p "Are you sure you want to reinstall the systemd services? (y/n): " REINSTALL_SYSTEMD_SERVICES
-		if [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-			INSTALL_SYSTEMD_SERVICES_STATE="1"
-		elif [[ "$REINSTALL_SYSTEMD_SERVICES" =~ ^([nN][oO]|[nN])$ ]]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation aborted." | tee -a "$LOG_SCRIPT"
-			INSTALL_SYSTEMD_SERVICES_STATE="0"
-		fi
-	else
-		INSTALL_SYSTEMD_SERVICES_STATE="1"
-	fi
-	
-	if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
-		if [ ! -d "/home/$USER/.config/systemd/user" ]; then
-			mkdir -p /home/$USER/.config/systemd/user
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME.service
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service
-		fi
-		
-		if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
-			rm /home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service
-		fi
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service <<- EOF
-		[Unit]
-		Description=$NAME TmpFs dir creator
-		After=mnt-tmpfs.mount
-		
-		[Service]
-		Type=oneshot
-		WorkingDirectory=/home/$USER/
-		ExecStart=/bin/mkdir -p $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/Build
-		
-		[Install]
-		WantedBy=default.target
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service <<- EOF
-		[Unit]
-		Description=$NAME TmpFs Server Service 
-		After=network.target mnt-tmpfs.mount $SERVICE_NAME-mkdir-tmpfs.service
-		Conflicts=$SERVICE_NAME.service
-		StartLimitBurst=3
-		StartLimitIntervalSec=300
-		StartLimitAction=none
-		OnFailure=$SERVICE_NAME-send-notification.service
-		
-		[Service]
-		Type=forking
-		WorkingDirectory=$TMPFS_DIR/$WINE_PREFIX_GAME_DIR
-		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -server_tmux_install
-		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_initialized
-		ExecStartPre=/usr/bin/rsync -av --info=progress2 $SRV_DIR/ $TMPFS_DIR
-		ExecStart=/usr/bin/tmux -f /tmp/%u-$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME 'env WINEARCH=$WINE_ARCH WINEDEBUG=warn+heap WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE 2> $LOG_DIR_ALL/$SERVICE_NAME-wine.log'
-		ExecStartPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_complete
-		ExecStop=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_initialized
-		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop 'env WINEARCH=$WINE_ARCH WINEDEBUG=warn+heap WINEPREFIX=$TMPFS_DIR wineconsole --backend=curses $TMPFS_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown'
-		ExecStop=/usr/bin/sleep 20
-		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$TMPFS_DIR /usr/bin/wineserver -k
-		ExecStop=/usr/bin/sleep 10
-		ExecStop=/usr/bin/rsync -av --info=progress2 $TMPFS_DIR/ $SRV_DIR
-		ExecStopPost=/usr/bin/rm /tmp/%u-$SERVICE_NAME-tmux.conf
-		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -move_wine_log
-		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
-		TimeoutStartSec=infinity
-		TimeoutStopSec=120
-		RestartSec=10
-		Restart=on-failure
-		
-		[Install]
-		WantedBy=default.target
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME.service <<- EOF
-		[Unit]
-		Description=$NAME Server Service
-		After=network.target
-		Conflicts=$SERVICE_NAME-tmpfs.service
-		StartLimitBurst=3
-		StartLimitIntervalSec=300
-		StartLimitAction=none
-		OnFailure=$SERVICE_NAME-send-notification.service
-		
-		[Service]
-		Type=forking
-		WorkingDirectory=$SRV_DIR/$WINE_PREFIX_GAME_DIR
-		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -server_tmux_install
-		ExecStartPre=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_initialized
-		ExecStart=/usr/bin/tmux -f /tmp/%u-$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME 'env WINEARCH=$WINE_ARCH WINEDEBUG=warn+heap WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE 2> $LOG_DIR_ALL/$SERVICE_NAME-wine.log'
-		ExecStartPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_start_complete
-		ExecStop=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_initialized
-		ExecStop=/usr/bin/tmux -f $SCRIPT_DIR/$SERVICE_NAME-tmux.conf -L %u-tmux.sock new-session -d -s $NAME-stop env WINEARCH=$WINE_ARCH WINEDEBUG=warn+heap WINEPREFIX=$SRV_DIR wineconsole --backend=curses $SRV_DIR/$WINE_PREFIX_GAME_DIR/$WINE_PREFIX_GAME_EXE -shutdown
-		ExecStop=/usr/bin/sleep 20
-		ExecStop=/usr/bin/env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR /usr/bin/wineserver -k
-		ExecStop=/usr/bin/sleep 10
-		ExecStopPost=/usr/bin/rm /tmp/%u-$SERVICE_NAME-tmux.conf
-		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -move_wine_log
-		ExecStopPost=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_stop_complete
-		TimeoutStartSec=infinity
-		TimeoutStopSec=120
-		RestartSec=10
-		Restart=on-failure
-		
-		[Install]
-		WantedBy=default.target
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer <<- EOF
-		[Unit]
-		Description=$NAME Script Timer 1
-		
-		[Timer]
-		OnCalendar=*-*-* 00:00:00
-		OnCalendar=*-*-* 06:00:00
-		OnCalendar=*-*-* 12:00:00
-		OnCalendar=*-*-* 18:00:00
-		Persistent=true
-		
-		[Install]
-		WantedBy=timers.target
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service <<- EOF
-		[Unit]
-		Description=$NAME Script Timer 1 Service
-		
-		[Service]
-		Type=oneshot
-		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_one
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer <<- EOF
-		[Unit]
-		Description=$NAME Script Timer 2
-		
-		[Timer]
-		OnCalendar=*-*-* *:15:00
-		OnCalendar=*-*-* *:30:00
-		OnCalendar=*-*-* *:45:00
-		OnCalendar=*-*-* 01:00:00
-		OnCalendar=*-*-* 02:00:00
-		OnCalendar=*-*-* 03:00:00
-		OnCalendar=*-*-* 04:00:00
-		OnCalendar=*-*-* 05:00:00
-		OnCalendar=*-*-* 07:00:00
-		OnCalendar=*-*-* 08:00:00
-		OnCalendar=*-*-* 09:00:00
-		OnCalendar=*-*-* 10:00:00
-		OnCalendar=*-*-* 11:00:00
-		OnCalendar=*-*-* 13:00:00
-		OnCalendar=*-*-* 14:00:00
-		OnCalendar=*-*-* 15:00:00
-		OnCalendar=*-*-* 16:00:00
-		OnCalendar=*-*-* 17:00:00
-		OnCalendar=*-*-* 19:00:00
-		OnCalendar=*-*-* 20:00:00
-		OnCalendar=*-*-* 21:00:00
-		OnCalendar=*-*-* 22:00:00
-		OnCalendar=*-*-* 23:00:00
-		Persistent=true
-		
-		[Install]
-		WantedBy=timers.target
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service <<- EOF
-		[Unit]
-		Description=$NAME Script Timer 2 Service
-		
-		[Service]
-		Type=oneshot
-		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -timer_two
-		EOF
-		
-		cat > /home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service <<- EOF
-		[Unit]
-		Description=$NAME Script Send Email notification Service
-		
-		[Service]
-		Type=oneshot
-		ExecStart=$SCRIPT_DIR/$SCRIPT_NAME -send_notification_crash
-		EOF
-	fi
-	
-	if [ "$EUID" -ne "0" ]; then
-		if [[ "$INSTALL_SYSTEMD_SERVICES_STATE" == "1" ]]; then
-			systemctl --user daemon-reload
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Reinstall systemd services) Systemd services reinstallation complete." | tee -a "$LOG_SCRIPT"
-		fi
-	fi
+#Generates the wine prefix
+script_generate_wine_prefix() {
+	Xvfb :5 -screen 0 1024x768x16 &
+	env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
+	env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
+	env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2015
+	env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q --force dotnet48
+	env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks sound=disabled
+	pkill -f Xvfb
 }
+
+#---------------------------
 
 #Reinstalls the wine prefix
 script_install_prefix() {
@@ -1148,12 +965,7 @@ script_install_prefix() {
 				mv "$SRV_DIR/$WINE_PREFIX_GAME_DIR"/* $BCKP_DIR/prefix_backup/game
 			fi
 			rm -rf $SRV_DIR
-			Xvfb :5 -screen 0 1024x768x16 &
-			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
-			env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
-			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2015
-			env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet48
-			pkill -f Xvfb
+			script_generate_wine_prefix
 			if [[ "$REINSTALL_PREFIX_KEEP_DATA" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				mkdir -p "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
 				mv $BCKP_DIR/prefix_backup/game/* "$SRV_DIR/$WINE_PREFIX_GAME_DIR"
@@ -1168,60 +980,7 @@ script_install_prefix() {
 	fi
 }
 
-#Check github for script updates and update if newer version available
-script_update_github() {
-	script_logs
-	if [[ "$SCRIPT_UPDATES_GITHUB" == "1" ]]; then
-		GITHUB_VERSION=$(curl -s https://raw.githubusercontent.com/7thCore/$SERVICE_NAME-script/master/$SERVICE_NAME-script.bash | grep "^export VERSION=" | sed 's/"//g' | cut -d = -f2)
-		if [ "$GITHUB_VERSION" -gt "$VERSION" ]; then
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Script update detected." | tee -a $LOG_SCRIPT
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$GITHUB_VERSION" | tee -a $LOG_SCRIPT
-			
-			if [[ "$DISCORD_UPDATE_SCRIPT" == "1" ]]; then
-				while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-					curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Update detected. Installing update.\"}" "$DISCORD_WEBHOOK"
-				done < $SCRIPT_DIR/discord_webhooks.txt
-			fi
-			
-			git clone https://github.com/7thCore/$SERVICE_NAME-script /$UPDATE_DIR/$SERVICE_NAME-script
-			rm $SCRIPT_DIR/$SERVICE_NAME-script.bash
-			cp --remove-destination $UPDATE_DIR/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
-			chmod +x $SCRIPT_DIR/$SERVICE_NAME-script.bash
-			rm -rf $UPDATE_DIR/$SERVICE_NAME-script
-			
-			if [[ "$EMAIL_UPDATE_SCRIPT" == "1" ]]; then
-				mail -r "$EMAIL_SENDER ($NAME-$USER)" -s "Notification: Script Update" $EMAIL_RECIPIENT <<- EOF
-				Script was updated. Please check the update notes if there are any additional steps to take.
-				Previous version: $VERSION
-				Current version: $GITHUB_VERSION
-				EOF
-			fi
-			
-			if [[ "$DISCORD_UPDATE_SCRIPT" == "1" ]]; then
-				while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-					curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Update complete. Installed version: $GITHUB_VERSION.\"}" "$DISCORD_WEBHOOK"
-				done < $SCRIPT_DIR/discord_webhooks.txt
-			fi
-		else
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) No new script updates detected." | tee -a $LOG_SCRIPT
-			echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$VERSION" | tee -a $LOG_SCRIPT
-		fi
-	fi
-}
-
-#Get latest script from github no matter what the version
-script_update_github_force() {
-	script_logs
-	GITHUB_VERSION=$(curl -s https://raw.githubusercontent.com/7thCore/$SERVICE_NAME-script/master/$SERVICE_NAME-script.bash | grep "^export VERSION=" | sed 's/"//g' | cut -d = -f2)
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Forcing script update." | tee -a $LOG_SCRIPT
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Installed:$VERSION, Available:$GITHUB_VERSION" | tee -a $LOG_SCRIPT
-	git clone https://github.com/7thCore/$SERVICE_NAME-script /$UPDATE_DIR/$SERVICE_NAME-script
-	rm $SCRIPT_DIR/$SERVICE_NAME-script.bash
-	cp --remove-destination $UPDATE_DIR/$SERVICE_NAME-script/$SERVICE_NAME-script.bash $SCRIPT_DIR/$SERVICE_NAME-script.bash
-	chmod +x $SCRIPT_DIR/$SERVICE_NAME-script.bash
-	rm -rf $UPDATE_DIR/$SERVICE_NAME-script
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Script update) Forced script update complete." | tee -a $LOG_SCRIPT
-}
+#---------------------------
 
 #First timer function for systemd timers to execute parts of the script in order without interfering with each other
 script_timer_one() {
@@ -1243,6 +1002,8 @@ script_timer_one() {
 	fi
 }
 
+#---------------------------
+
 #Second timer function for systemd timers to execute parts of the script in order without interfering with each other
 script_timer_two() {
 	if [[ "$(systemctl --user show -p ActiveState --value $SERVICE)" == "inactive" ]]; then
@@ -1261,6 +1022,8 @@ script_timer_two() {
 		script_update_github
 	fi
 }
+
+#---------------------------
 
 script_diagnostics() {
 	echo "Initializing diagnostics. Please wait..."
@@ -1303,25 +1066,25 @@ script_diagnostics() {
 		echo "Configuration file present: No"
 	fi
 	
-	if [ -d "/home/$USER/backups" ]; then
+	if [ -d "/home/$SERVICE_NAME/backups" ]; then
 		echo "Backups folder present: Yes"
 	else
 		echo "Backups folder present: No"
 	fi
 	
-	if [ -d "/home/$USER/logs" ]; then
+	if [ -d "/home/$SERVICE_NAME/logs" ]; then
 		echo "Logs folder present: Yes"
 	else
 		echo "Logs folder present: No"
 	fi
 	
-	if [ -d "/home/$USER/scripts" ]; then
+	if [ -d "/home/$SERVICE_NAME/scripts" ]; then
 		echo "Scripts folder present: Yes"
 	else
 		echo "Scripts folder present: No"
 	fi
 	
-	if [ -d "/home/$USER/server" ]; then
+	if [ -d "/home/$SERVICE_NAME/server" ]; then
 		echo "Server folder present: Yes"
 		echo ""
 		echo "List of installed applications in the prefix:"
@@ -1331,55 +1094,55 @@ script_diagnostics() {
 		echo "Server folder present: No"
 	fi
 	
-	if [ -d "/home/$USER/updates" ]; then
+	if [ -d "/home/$SERVICE_NAME/updates" ]; then
 		echo "Updates folder present: Yes"
 	else
 		echo "Updates folder present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
 		echo "Tmpfs mkdir service present: Yes"
 	else
 		echo "Tmpfs mkdir service present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
 		echo "Tmpfs service present: Yes"
 	else
 		echo "Tmpfs service present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME.service" ]; then
 		echo "Basic service present: Yes"
 	else
 		echo "Basic service present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
 		echo "Timer 1 timer present: Yes"
 	else
 		echo "Timer 1 timer present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
 		echo "Timer 1 service present: Yes"
 	else
 		echo "Timer 1 service present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
 		echo "Timer 2 timer present: Yes"
 	else
 		echo "Timer 2 timer present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
 		echo "Timer 2 service present: Yes"
 	else
 		echo "Timer 2 service present: No"
 	fi
 	
-	if [ -f "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
+	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
 		echo "Notification sending service present: Yes"
 	else
 		echo "Notification sending service present: No"
@@ -1394,677 +1157,522 @@ script_diagnostics() {
 	echo "Diagnostics complete."
 }
 
-script_install_packages() {
-	if [ -f "/etc/os-release" ]; then
-		#Get distro name
-		DISTRO=$(cat /etc/os-release | grep "^ID=" | cut -d = -f2)
-		
-		#Check for current distro
-		if [[ "$DISTRO" == "arch" ]]; then
-			#Arch distro
-			
-			#Add arch linux multilib repository
-			echo "[multilib]" >> /etc/pacman.conf
-			echo "Include = /etc/pacman.d/mirrorlist" >> /etc/pacman.conf
-			
-			#Install packages and enable services
-			sudo pacman -Syu --noconfirm wine-staging wine-mono wine_gecko winetricks libpulse libxml2 mpg123 lcms2 giflib libpng gnutls gst-plugins-base gst-plugins-good lib32-libpulse lib32-libxml2 lib32-mpg123 lib32-lcms2 lib32-giflib lib32-libpng lib32-gnutls lib32-gst-plugins-base lib32-gst-plugins-good rsync cabextract unzip p7zip wget curl tmux postfix zip jq xorg-server-xvfb samba
-			sudo systemctl enable smb nmb winbind
-			sudo systemctl start smb nmb winbind
-		elif [[ "$DISTRO" == "ubuntu" ]]; then
-			#Ubuntu distro
-			
-			#Get codename
-			UBUNTU_CODENAME=$(cat /etc/os-release | grep "^UBUNTU_CODENAME=" | cut -d = -f2)
-			
-			if [[ "$UBUNTU_CODENAME" == "bionic" || "$UBUNTU_CODENAME" == "eoan" || "$UBUNTU_CODENAME" == "focal" || "$UBUNTU_CODENAME" == "groovy" ]]; then
-				#Add i386 architecture support
-				apt install --yes sudo gnupg
-				sudo dpkg --add-architecture i386
-				
-				#Install software properties common
-				sudo apt install --yes software-properties-common
-				
-				#Check codename and install config for installation
-				if [[ "$UBUNTU_CODENAME" == "bionic" ]]; then
-					cat >> /etc/apt/sources.list <<- EOF
-					#### ubuntu eoan #########
-					deb http://archive.ubuntu.com/ubuntu eoan main restricted universe multiverse
-					EOF
-					
-					cat > /etc/apt/preferences.d/eoan.pref <<- EOF
-					Package: *
-					Pin: release n=$UBUNTU_CODENAME
-					Pin-Priority: 10
-					
-					Package: tmux
-					Pin: release n=eoan
-					Pin-Priority: 900
-					EOF
-				fi
-				
-				#Add wine repositroy and install packages
-				wget -nc https://dl.winehq.org/wine-builds/winehq.key
-				sudo apt-key add winehq.key
-				
-				sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/ubuntu/ $UBUNTU_CODENAME main"
-				
-				#Check for updates and update local repo database
-				sudo apt update
-				
-				#Install packages and enable services
-				sudo apt install --yes --install-recommends winehq-stable
-				sudo apt install --yes --install-recommends steamcmd
-				sudo apt install --yes rsync cabextract unzip p7zip wget curl tmux postfix zip jq xvfb samba winbind
-				sudo systemctl enable smbd nmbd winbind
-				sudo systemctl start smbd nmbd winbind
-				
-				#Install winetricks
-				wget  https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
-				sudo mv winetricks /usr/local/bin/
-				sudo chmod +x /usr/local/bin/winetricks
-			else
-				echo "Error: This version of Ubuntu is not supported. Supported versions are: Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla)"
-				echo "Exiting"
-				exit 1
-			fi
-		elif [[ "$DISTRO" == "debian" ]]; then
-			#Debian distro
-			
-			#Get codename
-			DEBIAN_CODENAME=$(cat /etc/os-release | grep "^VERSION_CODENAME=" | cut -d = -f2)
-			
-			if [[ "$DEBIAN_CODENAME" == "buster" ]]; then
-				#Add i386 architecture support
-				apt install --yes sudo gnupg
-				sudo dpkg --add-architecture i386
-				
-				#Install software properties common
-				sudo apt install --yes software-properties-common
-				
-				#Add non-free repo for steamcmd
-				sudo apt-add-repository non-free
-				
-				#Check codename and install backport repo if needed
-				if [[ "$DEBIAN_CODENAME" == "buster" ]]; then
-					sudo apt-add-repository "deb http://deb.debian.org/debian $DEBIAN_CODENAME-backports main"
-					sudo apt update
-					sudo apt -t buster-backports install --yes "tmux"
-				fi
-			
-				#Add wine and libfaudio0 repositroy and install packages
-				wget -nc https://dl.winehq.org/wine-builds/winehq.key
-				sudo apt-key add winehq.key
-				
-				wget -nc https://download.opensuse.org/repositories/Emulators:/Wine:/Debian/Debian_10/Release.key
-				sudo apt-key add Release.key
-				
-				sudo apt-add-repository "deb https://dl.winehq.org/wine-builds/debian/ $DEBIAN_CODENAME main"
-				sudo apt-add-repository "deb https://download.opensuse.org/repositories/Emulators:/Wine:/Debian/Debian_10 ./"
-				
-				#Check for updates and update local repo database
-				sudo apt update
-				
-				#Install packages and enable services
-				sudo apt install --yes libfaudio0:i386
-				sudo apt install --yes libfaudio0
-				sudo apt install --yes --install-recommends winehq-stable
-				sudo apt install --yes --install-recommends steamcmd
-				sudo apt install --yes rsync cabextract unzip p7zip wget curl postfix zip jq xvfb samba winbind
-				sudo systemctl enable smbd nmbd winbind
-				sudo systemctl start smbd nmbd winbind
-				
-				#Install winetricks
-				wget https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks
-				sudo mv winetricks /usr/local/bin/
-				sudo chmod +x /usr/local/bin/winetricks
-			else
-				echo "Error: This version of Debian is not supported. Supported versions are: Debian 10 (Buster)"
-				echo "Exiting"
-				exit 1
+#---------------------------
+
+#Installs the steam configuration files and the game if the user so chooses
+script_config_steam() {
+	echo ""
+	read -p "Do you want to use steam to download the game files and be resposible for maintaining them? (y/n): " INSTALL_STEAMCMD_ENABLE
+	if [[ "$INSTALL_STEAMCMD_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		echo ""
+		read -p "Enable beta branch? Used for experimental and legacy versions. (y/n): " INSTALL_STEAMCMD_BETA_BRANCH_ENABLE
+		if [[ "$INSTALL_STEAMCMD_BETA_BRANCH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			INSTALL_STEAMCMD_BETA_BRANCH="1"
+			echo "Look up beta branch names at https://steamdb.info/app/$APPID/depots/"
+			echo "Name example: experimental"
+			read -p "Enter beta branch name: " INSTALL_STEAMCMD_BETA_BRANCH_NAME
+		elif [[ "$INSTALL_STEAMCMD_BETA_BRANCH_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
+			INSTALL_STEAMCMD_BETA_BRANCH="0"
+			INSTALL_STEAMCMD_BETA_BRANCH_NAME="none"
+		fi
+
+		read -p "Do you want to install the server files with steam now? (y/n): " INSTALL_STEAMCMD_GAME_FILES_ENABLE
+		if [[ "$INSTALL_STEAMCMD_GAME_FILES_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			echo "Installing game..."
+			steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit > /srv/$SERVICE_NAME/updates/steam_app_data.txt
+
+			if [[ "$INSTALL_STEAMCMD_BETA_BRANCH" == "0" ]]; then
+				INSTALLED_BUILDID=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_BUILDID" > $UPDATE_DIR/installed.buildid
+
+				INSTALLED_TIME=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_TIME" > $UPDATE_DIR/installed.timeupdated
+
+				steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID validate +quit
+			elif [[ "$INSTALL_STEAMCMD_BETA_BRANCH" == "1" ]]; then
+				INSTALLED_BUILDID=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$INSTALL_STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_BUILDID" > $UPDATE_DIR/installed.buildid
+
+				INSTALLED_TIME=$(cat /srv/$SERVICE_NAME/updates/steam_app_data.txt | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$INSTALL_STEAMCMD_BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3)
+				echo "$INSTALLED_TIME" > $UPDATE_DIR/installed.timeupdated
+
+				steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +login anonymous +app_update $APPID -beta $INSTALL_STEAMCMD_BETA_BRANCH_NAME validate +quit
 			fi
 		else
-			echo "Error: This distro is not supported. This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla), Debian 10 (Buster). If you want to try the script on your distro, install the packages manually. Check the readme for required package versions."
-			echo "Exiting"
-			exit 1
+			echo "Manual game installation selected. Copy your game files to $SRV_DIR/$WINE_PREFIX_GAME_DIR after installation."
 		fi
-		
-		if [[ "$DISTRO" == "arch" ]]; then
-			echo "Arch Linux users have to install SteamCMD with an AUR tool or manually download it."
-		fi
-		echo "Package installation complete."
 	else
-		echo "os-release file not found. Is this distro supported?"
-		echo "This script currently supports Arch Linux, Ubuntu 18.04 LTS (Bionic Beaver), Ubuntu 19.10 (Disco Dingo), Ubuntu 20.04 LTS (Focal Fossa), Ubuntu 20.10 (Groovy Gorilla), Debian 10 (Buster)"
-		exit 1
+		echo ""
+		echo "Manual game installation selected. Copy your game files to $SRV_DIR/$WINE_PREFIX_GAME_DIR after installation."
+		INSTALL_STEAMCMD_BETA_BRANCH="0"
+		INSTALL_STEAMCMD_BETA_BRANCH_NAME="none"
 	fi
+
+	echo "Writing configuration file..."
+	touch $CONFIG_DIR/$SERVICE_NAME-steam.conf
+	echo 'steamcmd_beta_branch='"$INSTALL_STEAMCMD_BETA_BRANCH" >> $CONFIG_DIR/$SERVICE_NAME-steam.conf
+	echo 'steamcmd_beta_branch_name='"$INSTALL_STEAMCMD_BETA_BRANCH_NAME" >> $CONFIG_DIR/$SERVICE_NAME-steam.conf
+	echo "Done"
 }
 
-script_install() {
-	echo "Installation"
-	echo ""
-	echo "Required packages that need to be installed on the server:"
-	echo "xvfb"
-	echo "rsync"
-	echo "wine (minimum version: 5.0)"
-	echo "winetricks (minimum version: 20191224)"
-	echo "tmux (minimum version: 2.9a)"
-	echo "steamcmd"
-	echo "postfix (optional/for the email feature)"
-	echo "zip (optional but required if using the email feature)"
-	echo ""
-	echo "If these packages aren't installed, terminate this script with CTRL+C and install them."
-	echo "The script will ask you for your steam username and password and will store it in a configuration file for automatic updates."
-	echo "In the middle of the installation process you will be asked for a steam guard code. Also make sure your steam guard"
-	echo "is set to email only (don't use the mobile app and don't use no second authentication. USE STEAM GUARD VIA EMAIL!"
-	echo ""
-	echo "The installation will enable linger for the user specified (allows user services to be ran on boot)."
-	echo "It will also enable the services needed to run the game server by your specifications."
-	echo ""
-	echo "List of files that are going to be generated on the system:"
-	echo ""
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service - Service to generate the folder structure once the RamDisk is started (only executes if RamDisk enabled)."
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-tmpfs.service - Server service file for use with a RamDisk (only executes if RamDisk enabled)."
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME.service - Server service file for normal hdd/ssd use."
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.timer - Timer for scheduled command execution of $SERVICE_NAME-timer-1.service"
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-1.service - Executes scheduled script functions: autorestart, save, sync, backup and update."
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.timer - Timer for scheduled command execution of $SERVICE_NAME-timer-2.service"
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-timer-2.service - Executes scheduled script functions: autorestart, save, sync and update."
-	echo "/home/$USER/.config/systemd/user/$SERVICE_NAME-send-notification.service - If email notifications enabled, send email if server crashed 3 times in 5 minutes."
-	echo "$SCRIPT_DIR/$SERVICE_NAME-script.bash - This script."
-	echo "$SCRIPT_DIR/$SERVICE_NAME-config.conf - Stores settings for the script."
-	echo "$SCRIPT_DIR/$SERVICE_NAME-tmux.conf - Tmux configuration to enable logging."
-	echo "$UPDATE_DIR/installed.buildid - Information on installed buildid (AppInfo from Steamcmd)"
-	echo "$UPDATE_DIR/available.buildid - Information on available buildid (AppInfo from Steamcmd)"
-	echo "$UPDATE_DIR/installed.timeupdated - Information on time the server was last updated (AppInfo from Steamcmd)"
-	echo "$UPDATE_DIR/available.timeupdated - Information on time the server was last updated (AppInfo from Steamcmd)"
-	echo ""
-	read -p "Press any key to continue" -n 1 -s -r
-	echo ""
-	read -p "Enter password for user $USER: " USER_PASS
-	
-	sudo useradd -m -g users -s /bin/bash $USER
-	echo -en "$USER_PASS\n$USER_PASS\n" | sudo passwd $USER
-	
-	sudo chown -R "$USER":users "/home/$USER"
-	
-	echo ""
-	read -p "Enable RamDisk (y/n): " TMPFS
-	echo ""
-	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		TMPFS_ENABLE="1"
-		read -p "Do you already have a ramdisk mounted at /mnt/tmpfs? (y/n): " TMPFS_PRESENT
-		if [[ "$TMPFS_PRESENT" =~ ^([nN][oO]|[nN])$ ]]; then
-			read -p "Ramdisk size (Minimum of 6G for a single server, 12G for two and so on): " TMPFS_SIZE
-			echo "Installing ramdisk configuration"
-			cat >> /etc/fstab <<- EOF
-			
-			# /mnt/tmpfs
-			tmpfs				   /mnt/tmpfs		tmpfs		   rw,size=$TMPFS_SIZE,gid=$(cat /etc/group | grep users | grep -o '[[:digit:]]*'),mode=0777	0 0
-			EOF
-		fi
-	else
-		TMPFS_ENABLE="0"
-	fi
-	
-	echo ""
-	read -p "Enable beta branch? Used for experimental and legacy versions. (y/n): " SET_BETA_BRANCH_STATE
-	echo ""
-	if [[ "$SET_BETA_BRANCH_STATE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		BETA_BRANCH_ENABLED="1"
-		echo "Look up beta branch names at https://steamdb.info/app/$APPID/depots/"
-		echo "Name example: experimental"
-		read -p "Enter beta branch name: " BETA_BRANCH_NAME
-	elif [[ "$SET_BETA_BRANCH_STATE" =~ ^([nN][oO]|[nN])$ ]]; then
-		BETA_BRANCH_ENABLED="0"
-		BETA_BRANCH_NAME="none"
-	fi
-	
-	echo ""
-	read -p "Enable automatic updates for the script from github? Read warning in readme! (y/n): " SCRIPT_UPDATE_CONFIG
-	SCRIPT_UPDATE_CONFIG=${SCRIPT_UPDATE_CONFIG:=n}
-	if [[ "$SCRIPT_UPDATE_CONFIG" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		SCRIPT_UPDATE_ENABLED="1"
-	else
-		SCRIPT_UPDATE_ENABLED="0"
-	fi
-	
-	echo ""
-	read -p "Enable email notifications (y/n): " POSTFIX_ENABLE
-	if [[ "$POSTFIX_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		read -p "Is postfix already configured? (y/n): " POSTFIX_CONFIGURED
-		echo ""
-		read -p "Enter your email address for the server (example: example@gmail.com): " POSTFIX_SENDER
-		echo ""
-		if [[ "$POSTFIX_CONFIGURED" =~ ^([nN][oO]|[nN])$ ]]; then
-			read -p "Enter your password for $POSTFIX_SENDER : " POSTFIX_SENDER_PSW
-		fi
-		echo ""
-		read -p "Enter the email that will recieve the notifications (example: example2@gmail.com): " POSTFIX_RECIPIENT
-		echo ""
-		read -p "Email notifications for game updates? (y/n): " POSTFIX_UPDATE_ENABLE
-			if [[ "$POSTFIX_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				POSTFIX_UPDATE="1"
-			else
-				POSTFIX_UPDATE="0"
-			fi
-		echo ""
-		read -p "Email notifications for script updates from github? (y/n): " POSTFIX_UPDATE_SCRIPT_ENABLE
-			if [[ "$POSTFIX_UPDATE_SCRIPT_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				POSTFIX_UPDATE_SCRIPT="1"
-			else
-				POSTFIX_UPDATE_SCRIPT="0"
-			fi
-		echo ""
-		read -p "Email notifications for server startup? (WARNING: this can be anoying) (y/n): " POSTFIX_CRASH_ENABLE
-			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				POSTFIX_START="1"
-			else
-				POSTFIX_START="0"
-			fi
-		echo ""
-		read -p "Email notifications for server shutdown? (WARNING: this can be anoying) (y/n): " POSTFIX_CRASH_ENABLE
-			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				POSTFIX_STOP="1"
-			else
-				POSTFIX_STOP="0"
-			fi
-		echo ""
-		read -p "Email notifications for crashes? (y/n): " POSTFIX_CRASH_ENABLE
-			if [[ "$POSTFIX_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				POSTFIX_CRASH="1"
-			else
-				POSTFIX_CRASH="0"
-			fi
-		if [[ "$POSTFIX_CONFIGURED" =~ ^([nN][oO]|[nN])$ ]]; then
-			echo ""
-			read -p "Enter the relay host (example: smtp.gmail.com): " POSTFIX_RELAY_HOST
-			echo ""
-			read -p "Enter the relay host port (example: 587): " POSTFIX_RELAY_HOST_PORT
-			echo ""
-			cat >> /etc/postfix/main.cf <<- EOF
-			relayhost = [$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT
-			smtp_sasl_auth_enable = yes
-			smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
-			smtp_sasl_security_options = noanonymous
-			smtp_tls_CApath = /etc/ssl/certs
-			smtpd_tls_CApath = /etc/ssl/certs
-			smtp_use_tls = yes
-			EOF
+#---------------------------
 
-			cat > /etc/postfix/sasl_passwd <<- EOF
-			[$POSTFIX_RELAY_HOST]:$POSTFIX_RELAY_HOST_PORT    $POSTFIX_SENDER:$POSTFIX_SENDER_PSW
-			EOF
-
-			sudo chmod 400 /etc/postfix/sasl_passwd
-			sudo postmap /etc/postfix/sasl_passwd
-			sudo systemctl enable postfix
-		fi
-	elif [[ "$POSTFIX_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
-		POSTFIX_SENDER="none"
-		POSTFIX_RECIPIENT="none"
-		POSTFIX_UPDATE="0"
-		POSTFIX_UPDATE_SCRIPT="0"
-		POSTFIX_START="0"
-		POSTFIX_STOP="0"
-		POSTFIX_CRASH="0"
-	fi
-	
+#Configures discord integration
+script_config_discord() {
 	echo ""
-	read -p "Enable discord notifications (y/n): " DISCORD_ENABLE
-	if [[ "$DISCORD_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+	read -p "Enable discord notifications (y/n): " INSTALL_DISCORD_ENABLE
+	if [[ "$INSTALL_DISCORD_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 		echo ""
-		echo "You are able to add multiple webhooks for the script to use in the discord_webhooks.txt file located in the scripts folder."
+		echo "You are able to add multiple webhooks for the script to use in the discord_webhooks.txt file located in the config folder."
 		echo "EACH ONE HAS TO BE IN IT'S OWN LINE!"
 		echo ""
-		read -p "Enter your first webhook for the server: " DISCORD_WEBHOOK
-		if [[ "$DISCORD_WEBHOOK" == "" ]]; then
-			DISCORD_WEBHOOK="none"
+		read -p "Enter your first webhook for the server: " INSTALL_DISCORD_WEBHOOK
+		if [[ "$INSTALL_DISCORD_WEBHOOK" == "" ]]; then
+			INSTALL_DISCORD_WEBHOOK="none"
 		fi
 		echo ""
-		read -p "Discord notifications for game updates? (y/n): " DISCORD_UPDATE_ENABLE
-			if [[ "$DISCORD_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				DISCORD_UPDATE="1"
+		read -p "Discord notifications for game updates? (y/n): " INSTALL_DISCORD_UPDATE_ENABLE
+			if [[ "$INSTALL_DISCORD_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_DISCORD_UPDATE="1"
 			else
-				DISCORD_UPDATE="0"
+				INSTALL_DISCORD_UPDATE="0"
 			fi
 		echo ""
-		read -p "Discord notifications for script updates from github? (y/n): " DISCORD_UPDATE_SCRIPT_ENABLE
-			if [[ "$DISCORD_UPDATE_SCRIPT_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				DISCORD_UPDATE_SCRIPT="1"
+		read -p "Discord notifications for server startup? (y/n): " INSTALL_DISCORD_START_ENABLE
+			if [[ "$INSTALL_DISCORD_START_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_DISCORD_START="1"
 			else
-				DISCORD_UPDATE_SCRIPT="0"
+				INSTALL_DISCORD_START="0"
 			fi
 		echo ""
-		read -p "Discord notifications for server startup? (y/n): " DISCORD_START_ENABLE
-			if [[ "$DISCORD_START_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				DISCORD_START="1"
+		read -p "Discord notifications for server shutdown? (y/n): " INSTALL_DISCORD_STOP_ENABLE
+			if [[ "$INSTALL_DISCORD_STOP_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_DISCORD_STOP="1"
 			else
-				DISCORD_START="0"
+				INSTALL_DISCORD_STOP="0"
 			fi
 		echo ""
-		read -p "Discord notifications for server shutdown? (y/n): " DISCORD_STOP_ENABLE
-			if [[ "$DISCORD_STOP_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				DISCORD_STOP="1"
+		read -p "Discord notifications for crashes? (y/n): " INSTALL_DISCORD_CRASH_ENABLE
+			if [[ "$INSTALL_DISCORD_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_DISCORD_CRASH="1"
 			else
-				DISCORD_STOP="0"
+				INSTALL_DISCORD_CRASH="0"
 			fi
-		echo ""
-		read -p "Discord notifications for crashes? (y/n): " DISCORD_CRASH_ENABLE
-			if [[ "$DISCORD_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-				DISCORD_CRASH="1"
-			else
-				DISCORD_CRASH="0"
-			fi
-	elif [[ "$DISCORD_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
-		DISCORD_UPDATE="0"
-		DISCORD_UPDATE_SCRIPT="0"
-		DISCORD_START="0"
-		DISCORD_STOP="0"
-		DISCORD_CRASH="0"
+	elif [[ "$INSTALL_DISCORD_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
+		INSTALL_DISCORD_UPDATE="0"
+		INSTALL_DISCORD_START="0"
+		INSTALL_DISCORD_STOP="0"
+		INSTALL_DISCORD_CRASH="0"
 	fi
-	
-	echo "Installing bash profile"
-	cat > /home/$USER/.bash_profile <<- 'EOF'
-	#
-	# ~/.bash_profile
-	#
-	
-	[[ -f ~/.bashrc ]] && . ~/.bashrc
-	
-	export XDG_RUNTIME_DIR="/run/user/$UID"
-	export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
-	EOF
-	
-	sudo chown $USER:users /home/$USER/.bash_profile
-	
-	echo "Installing service files"
-	script_install_services
-	
-	sudo chown -R $USER:users /home/$USER/.config/systemd/user
-	
-	echo "Enabling linger"
-	
-	sudo loginctl enable-linger $USER
-	
-	if [ ! -f /var/lib/systemd/linger/$USER ]; then
-		sudo mkdir -p /var/lib/systemd/linger/
-		sudo touch /var/lib/systemd/linger/$USER
-	fi
-	
-	echo "Enabling services"
-		
-	sudo systemctl start user@$(id -u $USER).service
-	
-	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-1.timer"
-	su - $USER -c "systemctl --user enable $SERVICE_NAME-timer-2.timer"
-	
-	if [[ "$TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-		su - $USER -c "systemctl --user enable $SERVICE_NAME-mkdir-tmpfs.service"
-		su - $USER -c "systemctl --user enable $SERVICE_NAME-tmpfs.service"
-	elif [[ "$TMPFS" =~ ^([nN][oO]|[nN])$ ]]; then
-		su - $USER -c "systemctl --user enable $SERVICE_NAME.service"
-	fi
-	
-	echo "Creating folder structure for server..."
-	mkdir -p /home/$USER/{backups,logs,scripts,server,updates}
-	cp "$(readlink -f $0)" $SCRIPT_DIR
-	chmod +x $SCRIPT_DIR/$SCRIPT_NAME
-	
-	touch $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'tmpfs_enable='"$TMPFS_ENABLE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'beta_branch_enabled='"$BETA_BRANCH_ENABLED" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'beta_branch_name='"$BETA_BRANCH_NAME" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_sender='"$POSTFIX_SENDER" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_recipient='"$POSTFIX_RECIPIENT" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_update='"$POSTFIX_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_update_script='"$POSTFIX_UPDATE_SCRIPT" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_start='"$POSTFIX_START" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_stop='"$POSTFIX_STOP" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'email_crash='"$POSTFIX_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'discord_update='"$DISCORD_UPDATE" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'discord_update_script='"$DISCORD_UPDATE_SCRIPT" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'discord_start='"$DISCORD_START" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'discord_stop='"$DISCORD_STOP" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'discord_crash='"$DISCORD_CRASH" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'script_updates='"$SCRIPT_UPDATE_ENABLED" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'save_delold=10' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'bckp_delold=14' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	echo 'log_delold=7' >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	
-	echo "$DISCORD_WEBHOOK" > $SCRIPT_DIR/discord_webhooks.txt
-	
-	sudo chown -R "$USER":users "/home/$USER"
-	
-	echo "Generating wine prefix"
-	
-	su - $USER <<- EOF
-	Xvfb :5 -screen 0 1024x768x16 &
-	env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEDLLOVERRIDES="mscoree=d" WINEPREFIX=$SRV_DIR wineboot --init /nogui
-	env WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks corefonts
-	env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q vcrun2015
-	env DISPLAY=:5.0 WINEARCH=$WINE_ARCH WINEDEBUG=-all WINEPREFIX=$SRV_DIR winetricks -q dotnet48
-	pkill -f Xvfb
-	EOF
-	
-	echo "Updating and logging in to Steam..."
-	
-	su - $USER -c "steamcmd +login anonymous +quit"
-	
-	echo "Installing game..."
-	
-	if [[ "$BETA_BRANCH_ENABLED" == "0" ]]; then
-		su - $USER <<- EOF
-		steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/installed.buildid
-		EOF
-	
-		su - $USER <<- EOF
-		steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"public\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/installed.timeupdated
-		EOF
-		
-		su - $USER -c "steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID validate +quit"
-	elif [[ "$BETA_BRANCH_ENABLED" == "1" ]]; then
-		su - $USER <<- EOF
-		steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"buildid\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/installed.buildid
-		EOF
-	
-		su - $USER <<- EOF
-		steamcmd +login anonymous +app_info_update 1 +app_info_print $APPID +quit | grep -EA 1000 "^\s+\"branches\"$" | grep -EA 5 "^\s+\"$BETA_BRANCH_NAME\"$" | grep -m 1 -EB 10 "^\s+}$" | grep -E "^\s+\"timeupdated\"\s+" | tr '[:blank:]"' ' ' | tr -s ' ' | cut -d' ' -f3 > $UPDATE_DIR/installed.timeupdated
-		EOF
-		
-		su - $USER -c "steamcmd +@sSteamCmdForcePlatformType windows +login anonymous +force_install_dir $SRV_DIR/$WINE_PREFIX_GAME_DIR +app_update $APPID -beta $BETA_BRANCH_NAME validate +quit"
-	fi
-	
-	mkdir -p $BCKP_SRC_DIR
-	sudo chown -R "$USER":users "/home/$USER"
-	
-	
-	echo "Installation complete"
-	echo ""
-	echo "You can login to your the $USER account with <sudo -i -u $USER> from your primary account or root account."
-	echo "The script was automaticly copied to the scripts folder located at $SCRIPT_DIR"
-	echo "For any settings you'll want to change, edit the $SCRIPT_DIR/$SERVICE_NAME-config.conf file."
-	echo ""
+
+	echo "Writing configuration file..."
+	touch $CONFIG_DIR/$SERVICE_NAME-discord.conf
+	echo 'discord_update='"$INSTALL_DISCORD_UPDATE" >> $CONFIG_DIR/$SERVICE_NAME-discord.conf
+	echo 'discord_start='"$INSTALL_DISCORD_START" >> $CONFIG_DIR/$SERVICE_NAME-discord.conf
+	echo 'discord_stop='"$INSTALL_DISCORD_STOP" >> $CONFIG_DIR/$SERVICE_NAME-discord.conf
+	echo 'discord_crash='"$INSTALL_DISCORD_CRASH" >> $CONFIG_DIR/$SERVICE_NAME-discord.conf
+	echo "$INSTALL_DISCORD_WEBHOOK" > $CONFIG_DIR/discord_webhooks.txt
+	echo "Done"
 }
 
+#---------------------------
+
+#Configures email integration
+script_config_email() {
+	echo ""
+	read -p "Enable email notifications (y/n): " INSTALL_EMAIL_ENABLE
+	if [[ "$INSTALL_EMAIL_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		echo ""
+		read -p "Enter the email that will send the notifications (example: sender@gmail.com): " INSTALL_EMAIL_SENDER
+		echo ""
+		read -p "Enter the email that will recieve the notifications (example: recipient@gmail.com): " INSTALL_EMAIL_RECIPIENT
+		echo ""
+		read -p "Email notifications for game updates? (y/n): " INSTALL_EMAIL_UPDATE_ENABLE
+			if [[ "$INSTALL_EMAIL_UPDATE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_EMAIL_UPDATE="1"
+			else
+				INSTALL_EMAIL_UPDATE="0"
+			fi
+		echo ""
+		read -p "Email notifications for server startup? (WARNING: this can be anoying) (y/n): " INSTALL_EMAIL_START_ENABLE
+			if [[ "$INSTALL_EMAIL_START_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_EMAIL_START="1"
+			else
+				INSTALL_EMAIL_START="0"
+			fi
+		echo ""
+		read -p "Email notifications for server shutdown? (WARNING: this can be anoying) (y/n): " INSTALL_EMAIL_STOP_ENABLE
+			if [[ "$INSTALL_EMAIL_STOP_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_EMAIL_STOP="1"
+			else
+				INSTALL_EMAIL_STOP="0"
+			fi
+		echo ""
+		read -p "Email notifications for crashes? (y/n): " INSTALL_EMAIL_CRASH_ENABLE
+			if [[ "$INSTALL_EMAIL_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				INSTALL_EMAIL_CRASH="1"
+			else
+				INSTALL_EMAIL_CRASH="0"
+			fi
+		if [[ "$EUID" == "$(id -u root)" ]] ; then
+			read -p "Configure postfix? (y/n): " INSTALL_EMAIL_CONFIGURE
+			if [[ "$INSTALL_EMAIL_CONFIGURE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				echo ""
+				read -p "Enter the relay host (example: smtp.gmail.com): " INSTALL_EMAIL_RELAY_HOSTNAME
+				echo ""
+				read -p "Enter the relay host port (example: 587): " INSTALL_EMAIL_RELAY_PORT
+				echo ""
+				read -p "Enter your password for $INSTALL_EMAIL_SENDER : " INSTALL_EMAIL_SENDER_PSW
+
+				cat >> /etc/postfix/main.cf <<- EOF
+				relayhost = [$INSTALL_EMAIL_RELAY_HOST]:$INSTALL_EMAIL_RELAY_PORT
+				smtp_sasl_auth_enable = yes
+				smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+				smtp_sasl_security_options = noanonymous
+				smtp_tls_CApath = /etc/ssl/certs
+				smtpd_tls_CApath = /etc/ssl/certs
+				smtp_use_tls = yes
+				EOF
+
+				cat > /etc/postfix/sasl_passwd <<- EOF
+				[$INSTALL_EMAIL_RELAY_HOST]:$INSTALL_EMAIL_RELAY_PORT    $INSTALL_EMAIL_SENDER:$INSTALL_EMAIL_SENDER_PSW
+				EOF
+
+				sudo chmod 400 /etc/postfix/sasl_passwd
+				sudo postmap /etc/postfix/sasl_passwd
+				sudo systemctl enable --now postfix
+			fi
+		else
+			echo "Add the following lines to /etc/postfix/main.cf"
+			echo "relayhost = [$INSTALL_EMAIL_RELAY_HOST]:$INSTALL_EMAIL_RELAY_HOST_PORT"
+			echo "smtp_sasl_auth_enable = yes"
+			echo "smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd"
+			echo "smtp_sasl_security_options = noanonymous"
+			echo "smtp_tls_CApath = /etc/ssl/certs"
+			echo "smtpd_tls_CApath = /etc/ssl/certs"
+			echo "smtp_use_tls = yes"
+			echo ""
+			echo "Add the following line to /etc/postfix/sasl_passwd"
+			echo "[$INSTALL_EMAIL_RELAY_HOST]:$INSTALL_EMAIL_RELAY_HOST_PORT    $INSTALL_EMAIL_SENDER:$INSTALL_EMAIL_SENDER_PSW"
+			echo ""
+			echo "Execute the following commands:"
+			echo "sudo chmod 400 /etc/postfix/sasl_passwd"
+			echo "sudo postmap /etc/postfix/sasl_passwd"
+			echo "sudo systemctl enable postfix"
+		fi
+	elif [[ "$INSTALL_EMAIL_ENABLE" =~ ^([nN][oO]|[nN])$ ]]; then
+		INSTALL_EMAIL_SENDER="none"
+		INSTALL_EMAIL_RECIPIENT="none"
+		INSTALL_EMAIL_UPDATE="0"
+		INSTALL_EMAIL_START="0"
+		INSTALL_EMAIL_STOP="0"
+		INSTALL_EMAIL_CRASH="0"
+	fi
+
+	echo "Writing configuration file..."
+	echo 'email_sender='"$INSTALL_EMAIL_SENDER" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo 'email_recipient='"$INSTALL_EMAIL_RECIPIENT" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo 'email_update='"$INSTALL_EMAIL_UPDATE" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo 'email_start='"$INSTALL_EMAIL_START" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo 'email_stop='"$INSTALL_EMAIL_STOP" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo 'email_crash='"$INSTALL_EMAIL_CRASH" >> /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	chown $SERVICE_NAME /srv/$SERVICE_NAME/config/$SERVICE_NAME-email.conf
+	echo "Done"
+}
+
+#---------------------------
+
+#Configures tmpfs integration
+script_config_tmpfs() {
+	echo ""
+	read -p "Enable RamDisk (y/n): " INSTALL_TMPFS
+	echo ""
+	if [[ "$INSTALL_TMPFS" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		read -p "Ramdisk size (I recommend at least 8GB): " INSTALL_TMPFS_SIZE
+		echo "Installing ramdisk configuration"
+		if [[ "$EUID" == "$(id -u root)" ]] ; then
+			cat >> /etc/fstab <<- EOF
+
+			# /mnt/tmpfs
+			tmpfs				   /srv/$SERVICE_NAME/tmpfs		tmpfs		   rw,size=$INSTALL_TMPFS_SIZE,uid=$(id -u $SERVICE_NAME),mode=0777	0 0
+			EOF
+		else
+			echo "Add the following line to /etc/fstab:"
+			echo "tmpfs				   /srv/isrsrv/tmpfs		tmpfs		   rw,size=$INSTALL_TMPFS_SIZE,uid=$(id -u $SERVICE_NAME),mode=0777	0 0"
+		fi
+		sed -i '/script_tmpfs/d' $CONFIG_DIR/$SERVICE_NAME-script.conf
+		echo "script_tmpfs=1" >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	else
+		sed -i '/script_tmpfs/d' $CONFIG_DIR/$SERVICE_NAME-script.conf
+		echo "script_tmpfs=0" >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	fi
+	chown $SERVICE_NAME /srv/$SERVICE_NAME/config/$SERVICE_NAME-script.conf
+}
+
+#---------------------------
+
+#Configures the script
+script_config_script() {
+	echo -e "${CYAN}Script configuration${NC}"
+	echo -e ""
+	echo -e "The script uses steam to download the game server files, however you have the option to manualy copy the files yourself."
+	echo -e ""
+	echo -e "The script can work either way. The $SERVICE_NAME user's home directory is located in /srv/$SERVICE_NAME and all files are located there."
+	echo -e "This configuration installation will only install the essential configuration. No steam, discord, email or tmpfs/ramdisk"
+	echo -e "Default configuration will be applied and it can work without it. You can run the optional configuration for each using the"
+	echo -e "following arguments with the script:"
+	echo -e ""
+	echo -e "${GREEN}config_steam   ${RED}- ${GREEN}Configures steamcmd, automatic updates and installs the game server files.${NC}"
+	echo -e "${GREEN}config_discord ${RED}- ${GREEN}Configures discord integration.${NC}"
+	echo -e "${GREEN}config_email   ${RED}- ${GREEN}Configures email integration. Due to postfix configuration files being in /etc this has to be executed as root.${NC}"
+	echo -e "${GREEN}config_tmpfs   ${RED}- ${GREEN}Configures tmpfs/ramdisk. Due to it adding a line to /etc/fstab this has to be executed as root.${NC}"
+	echo -e ""
+	echo -e ""
+	read -p "Press any key to continue" -n 1 -s -r
+	echo ""
+
+	echo "Enable services"
+
+	systemctl --user enable $SERVICE_NAME.service
+	systemctl --user enable --now $SERVICE_NAME-timer-1.timer
+	systemctl --user enable --now $SERVICE_NAME-timer-2.timer
+
+	echo "Writing config files"
+
+	if [ -f "$CONFIG_DIR/$SERVICE_NAME-script.conf" ]; then
+		rm $CONFIG_DIR/$SERVICE_NAME-script.conf
+	fi
+
+	touch $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_tmpfs=0' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_bckp_delold=14' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_log_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_log_game_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_dump_game_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_timeout_save=120' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+
+	echo "Generating wine prefix"
+	script_generate_wine_prefix
+
+	if [ ! -d "$BCKP_SRC_DIR" ]; then
+		mkdir -p "$BCKP_SRC_DIR"
+	fi
+
+	echo "Configuration complete"
+	echo "For any settings you'll want to change, edit the files located in $CONFIG_DIR/"
+	echo "To enable additional fuctions like steam, discord, email and tmpfs execute the script with the help argument."
+}
+
+#---------------------------
+
 #Do not allow for another instance of this script to run to prevent data loss
-if [[ "-send_notification_start_initialized" != "$1" ]] && [[ "-send_notification_start_complete" != "$1" ]] && [[ "-send_notification_stop_initialized" != "$1" ]] && [[ "-send_notification_stop_complete" != "$1" ]] && [[ "-send_notification_crash" != "$1" ]] && [[ "-move_wine_log" != "$1" ]] && [[ "-server_tmux_install" != "$1" ]] && [[ "-attach" != "$1" ]] && [[ "-status" != "$1" ]]; then
+if [[ "send_notification_start_initialized" != "$1" ]] && [[ "send_notification_start_complete" != "$1" ]] && [[ "send_notification_stop_initialized" != "$1" ]] && [[ "send_notification_stop_complete" != "$1" ]] && [[ "send_notification_crash" != "$1" ]] && [[ "move_wine_log" != "$1" ]] && [[ "server_tmux_install" != "$1" ]] && [[ "server_tmux_commands_install" != "$1" ]] && [[ "attach" != "$1" ]] && [[ "attach_commands" != "$1" ]] && [[ "status" != "$1" ]]; then
 	SCRIPT_PID_CHECK=$(basename -- "$0")
 	if pidof -x "$SCRIPT_PID_CHECK" -o $$ > /dev/null; then
 		echo "An another instance of this script is already running, please clear all the sessions of this script before starting a new session"
-		exit 1
+		exit 2
 	fi
 fi
 
-if [ "$EUID" -ne "0" ] && [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ]; then #Check if script executed as root, if not generate missing config fields
-	touch $SCRIPT_DIR/$SERVICE_NAME-config.conf
-	CONFIG_FIELDS="tmpfs_enable,beta_branch_enabled,beta_branch_name,email_sender,email_recipient,email_update,email_update_script,email_start,email_stop,email_crash,discord_update,discord_update_script,discord_start,discord_stop,discord_crash,script_updates,bckp_delold,log_delold,update_ignore_failed_startups"
-	IFS=","
-	for CONFIG_FIELD in $CONFIG_FIELDS; do
-		if ! grep -q $CONFIG_FIELD $SCRIPT_DIR/$SERVICE_NAME-config.conf; then
-			if [[ "$CONFIG_FIELD" == "bckp_delold" ]]; then
-				echo "$CONFIG_FIELD=14" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			elif [[ "$CONFIG_FIELD" == "log_delold" ]]; then
-				echo "$CONFIG_FIELD=7" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			else
-				echo "$CONFIG_FIELD=0" >> $SCRIPT_DIR/$SERVICE_NAME-config.conf
-			fi
-		fi
-	done
+#---------------------------
+
+#Check what user is executing the script and allow root to execute certain functions.
+if [[ "$EUID" != "$(id -u $SERVICE_NAME)" ]] && [[ "install_email" != "$1" ]] && [[ "install_tmpfs" != "$1" ]]; then
+	echo "This script is only able to be executed by the $SERVICE_NAME user."
+	echo "The following functions can also be executed as root: config_email, config_tmpfs"
+	exit 3
 fi
 
+#---------------------------
+
+#Script help page
 case "$1" in
-	-help)
+	help)
 		echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"
 		echo -e "${CYAN}$NAME server script by 7thCore${NC}"
 		echo "Version: $VERSION"
 		echo ""
-		echo -e "${GREEN}-diag ${RED}- ${GREEN}Prints out package versions and if script files are installed${NC}"
-		echo -e "${GREEN}-start ${RED}- ${GREEN}Start the server${NC}"
-		echo -e "${GREEN}-start_no_err ${RED}- ${GREEN}Start the server but don't require confimation if in failed state${NC}"
-		echo -e "${GREEN}-stop ${RED}- ${GREEN}Stop the server${NC}"
-		echo -e "${GREEN}-restart ${RED}- ${GREEN}Restart the server${NC}"
-		echo -e "${GREEN}-sync ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd${NC}"
-		echo -e "${GREEN}-backup ${RED}- ${GREEN}Backup files, if server running or not${NC}"
-		echo -e "${GREEN}-autobackup ${RED}- ${GREEN}Automaticly backup files when server running${NC}"
-		echo -e "${GREEN}-deloldbackup ${RED}- ${GREEN}Delete old backups${NC}"
-		echo -e "${GREEN}-delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the GameServer.ini file${NC}"
-		echo -e "${GREEN}-deloldsavefiles ${RED}- ${GREEN}Delete the server's save game (leaves the latest number files specefied in the script conf file${NC}"
-		echo -e "${GREEN}-change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on)${NC}"
-		echo -e "${GREEN}-install_aliases ${RED}- ${GREEN}Installs .bashrc aliases for easy access to the server tmux session${NC}"
-		echo -e "${GREEN}-rebuild_services ${RED}- ${GREEN}Reinstalls the systemd services from the script. Usefull if any service updates occoured${NC}"
-		echo -e "${GREEN}-rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured${NC}"
-		echo -e "${GREEN}-disable_services ${RED}- ${GREEN}Disables all services. The server and the script will not start up on boot anymore${NC}"
-		echo -e "${GREEN}-enable_services ${RED}- ${GREEN}Enables all services dependant on the configuration file of the script${NC}"
-		echo -e "${GREEN}-reload_services ${RED}- ${GREEN}Reloads all services, dependant on the configuration file${NC}"
-		echo -e "${GREEN}-update ${RED}- ${GREEN}Update the server, if the server is running it will save it, shut it down, update it and restart it${NC}"
-		echo -e "${GREEN}-verify ${RED}- ${GREEN}Verifiy game server files, if the server is running it will save it, shut it down, verify it and restart it${NC}"
-		echo -e "${GREEN}-update_script ${RED}- ${GREEN}Check github for script updates and update if newer version available${NC}"
-		echo -e "${GREEN}-update_script_force ${RED}- ${GREEN}Get latest script from github and install it no matter what the version${NC}"
-		echo -e "${GREEN}-status ${RED}- ${GREEN}Display status of server${NC}"
-		echo -e "${GREEN}-install ${RED}- ${GREEN}Installs all the needed files for the script to run, the wine prefix and the game${NC}"
-		echo -e "${GREEN}-install_packages ${RED}- ${GREEN}Installs all the needed packages (check supported distros)${NC}"
+		echo "Basic script commands:"
+		echo -e "${GREEN}diag   ${RED}- ${GREEN}Prints out package versions and if script files are installed.${NC}"
+		echo -e "${GREEN}status ${RED}- ${GREEN}Display status of server.${NC}"
 		echo ""
-		echo -e "${LIGHTRED}If this is your first time running the script:${NC}"
-		echo -e "${LIGHTRED}Use the -install argument (run only this command as root) and follow the instructions${NC}"
+		echo "Configuration and installation:"
+		echo -e "${GREEN}config_script  ${RED}- ${GREEN}Configures the script, enables the systemd services and installs the wine prefix.${NC}"
+		echo -e "${GREEN}config_steam   ${RED}- ${GREEN}Configures steamcmd, automatic updates and installs the game server files.${NC}"
+		echo -e "${GREEN}config_discord ${RED}- ${GREEN}Configures discord integration.${NC}"
+		echo -e "${GREEN}config_email   ${RED}- ${GREEN}Configures email integration. Due to postfix configuration files being in /etc this has to be executed as root.${NC}"
+		echo -e "${GREEN}config_tmpfs   ${RED}- ${GREEN}Configures tmpfs/ramdisk. Due to it adding a line to /etc/fstab this has to be executed as root.${NC}"
 		echo ""
-		echo -e "${LIGHTRED}Example usage: ./$SCRIPT_NAME -start${NC}"
+		echo "Server services managment:"
+		echo -e "${GREEN}enable_services                 ${RED}- ${GREEN}Enables all services dependant on the configuration file of the script.${NC}"
+		echo -e "${GREEN}disable_services                ${RED}- ${GREEN}Disables all services. The server and the script will not start up on boot anymore.${NC}"
+		echo -e "${GREEN}reload_services                 ${RED}- ${GREEN}Reloads all services, dependant on the configuration file.${NC}"
 		echo ""
-		echo -e "${CYAN}Have a nice day!${NC}"
+		echo "Server and console managment:"
+		echo -e "${GREEN}start                           ${RED}- ${GREEN}Start the server. If the server number is not specified the function will start all servers.${NC}"
+		echo -e "${GREEN}start_no_err                    ${RED}- ${GREEN}Start the server but don't require confimation if in failed state.${NC}"
+		echo -e "${GREEN}stop                            ${RED}- ${GREEN}Stop the server. If the server number is not specified the function will stop all servers.${NC}"
+		echo -e "${GREEN}restart                         ${RED}- ${GREEN}Restart the server. If the server number is not specified the function will restart all servers.${NC}"
+		echo -e "${GREEN}save                            ${RED}- ${GREEN}Issue the save command to the server.${NC}"
+		echo -e "${GREEN}sync                            ${RED}- ${GREEN}Sync from tmpfs to hdd/ssd.${NC}"
+		echo -e "${GREEN}attach                          ${RED}- ${GREEN}Attaches to the tmux session of the specified server.${NC}"
 		echo ""
+		echo "Backup managment:"
+		echo -e "${GREEN}backup        ${RED}- ${GREEN}Backup files, if server running or not.${NC}"
+		echo -e "${GREEN}autobackup    ${RED}- ${GREEN}Automaticly backup files when server running.${NC}"
+		echo -e "${GREEN}delete_backup ${RED}- ${GREEN}Delete old backups.${NC}"
+		echo ""
+		echo "Steam managment:"
+		echo -e "${GREEN}update        ${RED}- ${GREEN}Update the server, if the server is running it will save it, shut it down, update it and restart it.${NC}"
+		echo -e "${GREEN}verify        ${RED}- ${GREEN}Verifiy game server files, if the server is running it will save it, shut it down, verify it and restart it.${NC}"
+		echo -e "${GREEN}change_branch ${RED}- ${GREEN}Changes the game branch in use by the server (public,experimental,legacy and so on).${NC}"
+		echo ""
+		echo "Game specific functions:"
+		echo -e "${GREEN}delete_save ${RED}- ${GREEN}Delete the server's save game with the option for deleting/keeping the server files.${NC}"
+		echo ""
+		echo "Wine functions:"
+		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
 		;;
-	-diag)
+#---------------------------
+#Basic script functions
+	diag)
 		script_diagnostics
 		;;
-	-start)
-		script_start
-		;;
-	-start_no_err)
-		script_start_ignore_errors $2
-		;;
-	-stop)
-		script_stop
-		;;
-	-restart)
-		script_restart
-		;;
-	-sync)
-		script_sync
-		;;
-	-backup)
-		script_backup
-		;;
-	-autobackup)
-		script_autobackup
-		;;
-	-deloldbackup)
-		script_deloldbackup
-		;;
-	-deloldsavefiles)
-		script_deloldsavefiles
-		;;
-	-update)
-		script_update
-		;;
-	-verify)
-		script_verify_game_integrity
-		;;
-	-update_script)
-		script_update_github
-		;;
-	-update_script_force)
-		script_update_github_force
-		;;
-	-status)
+	status)
 		script_status
 		;;
-	-attach)
-		script_attach
+#---------------------------
+#Configuration and installation
+	config_script)
+		script_config_script
 		;;
-	-install_packages)
-		script_install_packages
+	config_steam)
+		script_config_steam
 		;;
-	-install)
-		script_install
+	config_discord)
+		script_config_discord
 		;;
-	-delete_save)
-		script_delete_save
+	config_email)
+		script_config_email
 		;;
-	-change_branch)
-		script_change_branch
+	config_tmpfs)
+		script_config_tmpfs
 		;;
-	-send_notification_start_initialized)
-		script_send_notification_start_initialized
-		;;
-	-send_notification_start_complete)
-		script_send_notification_start_complete
-		;;
-	-send_notification_stop_initialized)
-		script_send_notification_stop_initialized
-		;;
-	-send_notification_stop_complete)
-		script_send_notification_stop_complete
-		;;
-	-send_notification_crash)
-		script_send_notification_crash
-		;;
-	-move_wine_log)
-		script_move_wine_log
-		;;
-	-install_aliases)
-		script_install_alias
-		;;
-	-server_tmux_install)
-		script_server_tmux_install
-		;;
-	-rebuild_services)
-		script_install_services
-		;;
-	-rebuild_prefix)
-		script_install_prefix
-		;;
-	-disable_services)
-		script_disable_services_manual
-		;;
-	-enable_services)
+#---------------------------
+#Server services managment
+	enable_services)
 		script_enable_services_manual
 		;;
-	-reload_services)
+	disable_services)
+		script_disable_services_manual
+		;;
+	reload_services)
 		script_reload_services
 		;;
-	-timer_one)
+#---------------------------
+#Server and console managment
+	start)
+		script_start
+		;;
+	start_no_err)
+		script_start_ignore_errors
+		;;
+	stop)
+		script_stop
+		;;
+	restart)
+		script_restart
+		;;
+	save)
+		script_save
+		;;
+	sync)
+		script_sync
+		;;
+	attach)
+		script_attach
+		;;
+#---------------------------
+#Backup managment
+	backup)
+		script_backup
+		;;
+	autobackup)
+		script_autobackup
+		;;
+	delete_backup)
+		script_deloldbackup
+		;;
+
+#---------------------------
+#Steam managment
+	update)
+		script_update
+		;;
+	verify)
+		script_verify_game_integrity
+		;;
+	change_branch)
+		script_change_branch
+		;;
+#---------------------------
+#Game specific functions
+	delete_save)
+		script_delete_save
+		;;
+#---------------------------
+#Wine functions
+	rebuild_prefix)
+		script_install_prefix
+		;;
+#---------------------------
+#Hidden functions meant for systemd service use
+	move_wine_log)
+		script_move_wine_log
+		;;
+	send_notification_start_initialized)
+		script_send_notification_start_initialized
+		;;
+	send_notification_start_complete)
+		script_send_notification_start_complete
+		;;
+	send_notification_stop_initialized)
+		script_send_notification_stop_initialized
+		;;
+	send_notification_stop_complete)
+		script_send_notification_stop_complete
+		;;
+	send_notification_crash)
+		script_send_notification_crash
+		;;
+	server_tmux_install)
+		script_server_tmux_install
+		;;
+	server_tmux_commands_install)
+		script_commands_tmux_install
+		;;
+	timer_one)
 		script_timer_one
 		;;
-	-timer_two)
+	timer_two)
 		script_timer_two
 		;;
 	*)
+#---------------------------
+#General output if the script does not recognise the argument provided
 	echo -e "${CYAN}Time: $(date +"%Y-%m-%d %H:%M:%S") ${NC}"
 	echo -e "${CYAN}$NAME server script by 7thCore${NC}"
 	echo ""
 	echo "For more detailed information, execute the script with the -help argument"
 	echo ""
-	echo "Usage: $0 {diag|start|start_no_err|stop|restart|sync|backup|autobackup|deloldbackup|deloldsavefiles|delete_save|change_branch|install_aliases|rebuild_services|rebuild_prefix|disable_services|enable_services|reload_services|update|verify|update_script|update_script_force|attach|status|install|install_packages}"
+	echo -e "${GREEN}Basic script commands${RED}: ${GREEN}help, diag, status${NC}"
+	echo -e "${GREEN}Configuration and installation${RED}: ${GREEN}config_script, config_steam, config_discord, config_email, config_tmpfs${NC}"
+	echo -e "${GREEN}Server services managment${RED}: ${GREEN}enable_services, disable_services, reload_services${NC}"
+	echo -e "${GREEN}Server and console managment${RED}: ${GREEN}start, start_no_err, stop,restart, save, sync, attach${NC}"
+	echo -e "${GREEN}Backup managment${RED}: ${GREEN}backup, autobackup, delete_backup${NC}"
+	echo -e "${GREEN}Steam managment${RED}: ${GREEN}update, verify, change_branch${NC}"
+	echo -e "${GREEN}Game specific functions${RED}: ${GREEN}delete_save${NC}"
+	echo -e "${GREEN}Wine functions${RED}: ${GREEN}rebuild_prefix${NC}"
 	exit 1
 	;;
 esac

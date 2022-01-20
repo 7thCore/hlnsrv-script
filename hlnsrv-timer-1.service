@@ -1,0 +1,6 @@
+[Unit]
+Description=HlnSrv Script Timer 1 Service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/hlnsrv-script timer_one
