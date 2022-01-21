@@ -1,0 +1,13 @@
+getent group hlnsrv >/dev/null || groupadd --system hlnsrv
+getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv \
+  -d /srv/hlnsrv/ -s /bin/bash hlnsrv
+
+install -dm700 srv/hlnsrv/backups
+install -dm700 srv/hlnsrv/config
+install -dm700 srv/hlnsrv/logs
+install -dm700 srv/hlnsrv/server
+install -dm700 srv/hlnsrv/tmpfs
+install -dm700 srv/hlnsrv/updates
+chown -R hlnsrv:hlnsrv srv/hlnsrv
+loginctl enable-linger hlnsrv
+systemctl start user@$(id -u hlnsrv).service
