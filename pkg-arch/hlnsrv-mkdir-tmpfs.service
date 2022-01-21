@@ -1,0 +1,11 @@
+[Unit]
+Description=HlnSrv TmpFs dir creator
+After=srv-hlnsrv-tmpfs.mount
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/hlnsrv
+ExecStart=/bin/mkdir -p /srv/hlnsrv/tmpfs/drive_c/Games/Hellion
+
+[Install]
+WantedBy=default.target
