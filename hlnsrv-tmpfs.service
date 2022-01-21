@@ -1,7 +1,7 @@
 [Unit]
 Description=HlnSrv TmpFs Server Service
 Requires=hlnsrv-sync-tmpfs.service
-After=network.target mnt-tmpfs.mount hlnsrv-sync-tmpfs.service
+After=network.target srv-hlnsrv-tmpfs.mount hlnsrv-sync-tmpfs.service
 Conflicts=hlnsrv.service
 StartLimitBurst=3
 StartLimitIntervalSec=300

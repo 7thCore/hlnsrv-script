@@ -1,6 +1,6 @@
 [Unit]
 Description=HlnSrv TmpFs dir creator
-After=mnt-tmpfs.mount
+After=srv-hlnsrv-tmpfs.mount
 
 [Service]
 Type=oneshot

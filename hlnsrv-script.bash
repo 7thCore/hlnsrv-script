@@ -5,7 +5,7 @@
 
 #Basics
 NAME="HlnSrv" #Name of the tmux session
-VERSION="1.0-1" #Package and script version
+VERSION="1.1-1" #Package and script version
 
 #Server configuration
 SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
