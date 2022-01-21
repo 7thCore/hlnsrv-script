@@ -1,0 +1,34 @@
+[Unit]
+Description=HlnSrv TmpFs Server Service
+Requires=hlnsrv-sync-tmpfs.service
+After=network.target srv-hlnsrv-tmpfs.mount hlnsrv-sync-tmpfs.service
+Conflicts=hlnsrv.service
+StartLimitBurst=3
+StartLimitIntervalSec=300
+StartLimitAction=none
+OnFailure=hlnsrv-send-notification.service
+
+[Service]
+Type=forking
+KillMode=process
+WorkingDirectory=/srv/hlnsrv/tmpfs/drive_c/Games/Hellion
+ExecStartPre=/usr/bin/hlnsrv-script server_tmux_install
+ExecStartPre=/usr/bin/hlnsrv-script send_notification_start_initialized
+ExecStartPre=/usr/bin/rsync -aAXv --info=progress /srv/hlnsrv/server/ /srv/hlnsrv/tmpfs
+ExecStart=/usr/bin/tmux -f /tmp/%u-tmux.conf -L %u-tmux.sock new-session -d -s HlnSrv 'env WINEARCH=win64 WINEDEBUG=warn+heap WINEPREFIX=/srv/hlnsrv/tmpfs wine /srv/hlnsrv/tmpfs/drive_c/Games/Hellion/HELLION_Dedicated.exe 2> /srv/hlnsrv/logs/hlnsrv-wine.log'
+ExecStartPost=/usr/bin/hlnsrv-script send_notification_start_complete
+ExecStop=/usr/bin/hlnsrv-script send_notification_stop_initialized
+ExecStop=/usr/bin/tmux -f /tmp/%u-tmux.conf -L %u-tmux.sock new-session -d -s HlnSrv-Stop env WINEARCH=win64 WINEDEBUG=warn+heap WINEPREFIX=/srv/hlnsrv/tmpfs wine /srv/hlnsrv/server/drive_c/Games/Hellion/HELLION_Dedicated.exe -shutdown
+ExecStop=/usr/bin/sleep 20
+ExecStop=/usr/bin/rsync -aAXv --info=progress /srv/hlnsrv/tmpfs/ /srv/hlnsrv/server
+ExecStopPost=/usr/bin/rm /tmp/%u-tmux.conf
+ExecStopPost=/usr/bin/isrsrv-script move_wine_log
+ExecStopPost=/usr/bin/hlnsrv-script send_notification_stop_complete
+TimeoutStartSec=infinity
+TimeoutStopSec=120
+RestartSec=10
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOF
