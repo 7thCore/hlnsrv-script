@@ -1,7 +1,7 @@
 # Maintainer: 7thCore
 
 pkgname=hlnsrv-script
-pkgver=1.0
+pkgver=1.1
 pkgrel=1
 pkgdesc='Hellion server script for running the server on linux with wine compatibility layer.'
 arch=('x86_64')
@@ -60,14 +60,14 @@ source=('hlnsrv-script.bash'
         'hlnsrv-tmpfs.service'
         'bash_profile')
 noextract=('')
-sha256sums=('b4cf03354abd4f3748cd5a695afc6cd4eaf42d056e125e12643c0f5e22f6782b'
+sha256sums=('95bc892db033e457a7b081530382812de29a41df19c6f4d25035d9672c007e11'
             'deb68ef656e1c6e69ca9ac993990306ab7e44e3f6c3c67cb6136266ad6359f54'
             '30c346e7bb70a9fd257fb389b774eca12f25b1ba8cd709af7d9dc8b9d985abd1'
             '58f2a4a7bfa23fc9011948cb16f60426ad52bde2261f8a8d712b8f8184de2568'
             '0d8ebd66c10d9acc9b752185191427247ea654a595674ca304376295b91e2c6a'
             'acf6b216948e533825d94b7e092ed22c57cddf8a117738df082e9af5e7fce6d2'
             'e4c5057d307572f835260208e2b3d3252e5a78f76bf11b28855bea479d4747e6'
-            'd8d478dddf0e4ce131269e1a9500bffa3b33fe38aaa933e70c02c136f3dd4039'
+            '93014c64a50fda63f7c22d151469a625753ebce7847697917cf8921ad308f2e6'
             '636320f47b6ed583dc5d1cd0b34945e680699f5675eb569a4e99a23b7b259efd'
             'f1e2f643b81b27d16fe79e0563e39c597ce42621ae7c2433fd5b70f1eeab5d63')
 
