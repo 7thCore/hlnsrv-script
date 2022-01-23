@@ -2,7 +2,7 @@
 
 pkgname=hlnsrv-script
 pkgver=1.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Hellion server script for running the server on linux with wine compatibility layer.'
 arch=('x86_64')
 depends=('bash'
@@ -60,7 +60,7 @@ source=('hlnsrv-script.bash'
         'hlnsrv-tmpfs.service'
         'bash_profile')
 noextract=('')
-sha256sums=('95bc892db033e457a7b081530382812de29a41df19c6f4d25035d9672c007e11'
+sha256sums=('96936cdaadcef2de394c4e28d41c35dddb90455daf4f6f4107a2f35f74b1af34'
             'deb68ef656e1c6e69ca9ac993990306ab7e44e3f6c3c67cb6136266ad6359f54'
             '30c346e7bb70a9fd257fb389b774eca12f25b1ba8cd709af7d9dc8b9d985abd1'
             '58f2a4a7bfa23fc9011948cb16f60426ad52bde2261f8a8d712b8f8184de2568'
