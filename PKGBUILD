@@ -1,10 +1,11 @@
 # Maintainer: 7thCore
 
 pkgname=hlnsrv-script
-pkgver=1.1
-pkgrel=2
+pkgver=1.2
+pkgrel=1
 pkgdesc='Hellion server script for running the server on linux with wine compatibility layer.'
 arch=('x86_64')
+license=('GPL3')
 depends=('bash'
          'coreutils'
          'sudo'
@@ -47,29 +48,27 @@ depends=('bash'
          'lib32-gst-plugins-base'
          'lib32-gst-plugins-good'
          'steamcmd')
-backup=('')
 install=hlnsrv-script.install
-source=('hlnsrv-script.bash'
-        'hlnsrv-timer-1.timer'
-        'hlnsrv-timer-1.service'
-        'hlnsrv-timer-2.timer'
-        'hlnsrv-timer-2.service'
+source=('bash_profile'
+        'hlnsrv-mkdir-tmpfs.service'
+        'hlnsrv-script.bash'
         'hlnsrv-send-notification.service'
         'hlnsrv.service'
-        'hlnsrv-mkdir-tmpfs.service'
-        'hlnsrv-tmpfs.service'
-        'bash_profile')
-noextract=('')
-sha256sums=('96936cdaadcef2de394c4e28d41c35dddb90455daf4f6f4107a2f35f74b1af34'
-            'deb68ef656e1c6e69ca9ac993990306ab7e44e3f6c3c67cb6136266ad6359f54'
-            '30c346e7bb70a9fd257fb389b774eca12f25b1ba8cd709af7d9dc8b9d985abd1'
-            '58f2a4a7bfa23fc9011948cb16f60426ad52bde2261f8a8d712b8f8184de2568'
-            '0d8ebd66c10d9acc9b752185191427247ea654a595674ca304376295b91e2c6a'
-            'acf6b216948e533825d94b7e092ed22c57cddf8a117738df082e9af5e7fce6d2'
-            'e4c5057d307572f835260208e2b3d3252e5a78f76bf11b28855bea479d4747e6'
-            '93014c64a50fda63f7c22d151469a625753ebce7847697917cf8921ad308f2e6'
-            '8b16c8b7026b890c1a30c1d9026c9a1dc4fbb4f89111853b71cfa064a28a2e22'
-            'f1e2f643b81b27d16fe79e0563e39c597ce42621ae7c2433fd5b70f1eeab5d63')
+        'hlnsrv-timer-1.service'
+        'hlnsrv-timer-1.timer'
+        'hlnsrv-timer-2.service'
+        'hlnsrv-timer-2.timer'
+        'hlnsrv-tmpfs.service')
+sha256sums=('f1e2f643b81b27d16fe79e0563e39c597ce42621ae7c2433fd5b70f1eeab5d63'
+            'b834287ecfe22a85ca7205b14e7a2ab7a4651ba48e6ba1dbbb76571a62356ca5'
+            '5d7b00c3845ec760b11d95a0f287fad0679e811a854c2b1bfae91e8cf1c43fac'
+            'd899e55144563442ef526f13fe7511333015a04fce3a8d411943983597f467f3'
+            '6a5bfd8454893956f7f39d5684b1e09e65a0dc32fc94cf7443249f9641e88ef3'
+            '7a0953dca1ee275ad5f6d46ba43fd320f4290f0201cac4f9f5d7c634dfbfd726'
+            '6a0519681663165fd348eabb855f6469e8f586ae8658e2b48d59895b4a8799ab'
+            'a7e197d86ff5a15006d2706f1e10481c52b8fef37674d173e615d07ce44f00f5'
+            '0073cdafd1b467144bfcb80d8781002e043323a7f4da0f77d457f47d89a1dec7'
+            '9bd9eb2f9618192221bd9e2d56d012180969284270c8ea0252b1ecff2828b013')
 
 package() {
   install -d -m0755 "${pkgdir}/usr/bin"

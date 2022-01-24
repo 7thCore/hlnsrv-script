@@ -1,16 +1,31 @@
 #!/bin/bash
 
+#    Copyright (C) 2022 7thCore
+#    This file is part of HlnSrv-Script.
+#
+#    HlnSrv-Script is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    HlnSrv-Script is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #Hellion server script by 7thCore
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 
 #Basics
 NAME="HlnSrv" #Name of the tmux session
-VERSION="1.1-2" #Package and script version
+VERSION="1.2-1" #Package and script version
 
 #Server configuration
 SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
 SRV_DIR="/srv/$SERVICE_NAME/server" #Location of the server located on your hdd/ssd
-SCRIPT_NAME="$SERVICE_NAME-script.bash" #Script name
 CONFIG_DIR="/srv/$SERVICE_NAME/config" #Location of this script
 UPDATE_DIR="/srv/$SERVICE_NAME/updates" #Location of update information for the script's automatic update feature
 
@@ -40,6 +55,19 @@ else
 	STEAMCMD_BETA_BRANCH_NAME="0"
 fi
 
+#Discord configuration
+if [ -f "$CONFIG_DIR/$SERVICE_NAME-discord.conf" ] ; then
+	DISCORD_UPDATE=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_update= | cut -d = -f2) #Send notification when the server updates
+	DISCORD_START=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_start= | cut -d = -f2) #Send notifications when the server starts
+	DISCORD_STOP=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_stop= | cut -d = -f2) #Send notifications when the server stops
+	DISCORD_CRASH=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_crash= | cut -d = -f2) #Send notifications when the server crashes
+else
+	DISCORD_UPDATE="0"
+	DISCORD_START="0"
+	DISCORD_STOP="0"
+	DISCORD_CRASH="0"
+fi
+
 #Email configuration
 if [ -f "$CONFIG_DIR/$SERVICE_NAME-email.conf" ] ; then
 	EMAIL_SENDER=$(cat $CONFIG_DIR/$SERVICE_NAME-email.conf | grep email_sender= | cut -d = -f2) #Send emails from this address
@@ -55,19 +83,6 @@ else
 	EMAIL_START="0"
 	EMAIL_STOP="0"
 	EMAIL_CRASH="0"
-fi
-
-#Discord configuration
-if [ -f "$CONFIG_DIR/$SERVICE_NAME-discord.conf" ] ; then
-	DISCORD_UPDATE=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_update= | cut -d = -f2) #Send notification when the server updates
-	DISCORD_START=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_start= | cut -d = -f2) #Send notifications when the server starts
-	DISCORD_STOP=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_stop= | cut -d = -f2) #Send notifications when the server stops
-	DISCORD_CRASH=$(cat $CONFIG_DIR/$SERVICE_NAME-discord.conf | grep discord_crash= | cut -d = -f2) #Send notifications when the server crashes
-else
-	DISCORD_UPDATE="0"
-	DISCORD_START="0"
-	DISCORD_STOP="0"
-	DISCORD_CRASH="0"
 fi
 
 #App id of the steam game
@@ -90,7 +105,7 @@ fi
 
 #Backup configuration
 BCKP_SRC="*" #What files to backup, * for all
-BCKP_DIR="/home/$SERVICE_NAME/backups" #Location of stored backups
+BCKP_DIR="/srv/$SERVICE_NAME/backups" #Location of stored backups
 BCKP_DEST="$BCKP_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #How backups are sorted, by default it's sorted in folders by month and day
 
 #Log configuration
@@ -269,7 +284,7 @@ script_send_notification_start_initialized() {
 	if [[ "$DISCORD_START" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup was initialized.\"}" "$DISCORD_WEBHOOK"
-		done < $SCRIPT_DIR/discord_webhooks.txt
+		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup initialized." | tee -a "$LOG_SCRIPT"
 }
@@ -287,7 +302,7 @@ script_send_notification_start_complete() {
 	if [[ "$DISCORD_START" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup complete.\"}" "$DISCORD_WEBHOOK"
-		done < $SCRIPT_DIR/discord_webhooks.txt
+		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup complete." | tee -a "$LOG_SCRIPT"
 }
@@ -305,7 +320,7 @@ script_send_notification_stop_initialized() {
 	if [[ "$DISCORD_STOP" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress.\"}" "$DISCORD_WEBHOOK"
-		done < $SCRIPT_DIR/discord_webhooks.txt
+		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
 }
@@ -323,7 +338,7 @@ script_send_notification_stop_complete() {
 	if [[ "$DISCORD_STOP" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete.\"}" "$DISCORD_WEBHOOK"
-		done < $SCRIPT_DIR/discord_webhooks.txt
+		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown complete." | tee -a "$LOG_SCRIPT"
 }
@@ -361,7 +376,7 @@ script_send_notification_crash() {
 	if [[ "$DISCORD_CRASH" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) The server crashed 3 times in the last 5 minutes. Automatic restart is disabled and the server is inactive. Please review your logs located in $CRASH_DIR.\"}" "$DISCORD_WEBHOOK"
-		done < $SCRIPT_DIR/discord_webhooks.txt
+		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs located in $CRASH_DIR." | tee -a "$LOG_SCRIPT"
 }
@@ -1047,44 +1062,38 @@ script_diagnostics() {
 		echo "xvfb version:$(pacman -Qi xorg-server-xvfb | grep "^Version" | cut -d : -f2)"
 		echo "postfix version:$(pacman -Qi postfix | grep "^Version" | cut -d : -f2)"
 		echo "zip version:$(pacman -Qi zip | grep "^Version" | cut -d : -f2)"
-	elif [[ "$DISTRO" == "ubuntu" ]]; then
+	elif [[ "$DISTRO" == "debian" ]]; then
 		echo "xvfb version:$(dpkg -s xvfb | grep "^Version" | cut -d : -f2)"
 		echo "postfix version:$(dpkg -s postfix | grep "^Version" | cut -d : -f2)"
 		echo "zip version:$(dpkg -s zip | grep "^Version" | cut -d : -f2)"
 	fi
 	
 	#Check if files/folders present
-	if [ -f "$SCRIPT_DIR/$SCRIPT_NAME" ] ; then
-		echo "Script installed: Yes"
+	if [ -f "/usr/bin/$SERVICE_NAME-script" ] ; then
+		echo "Script present: Yes"
 	else
-		echo "Script installed: No"
+		echo "Script present: No"
 	fi
-	
-	if [ -f "$SCRIPT_DIR/$SERVICE_NAME-config.conf" ] ; then
-		echo "Configuration file present: Yes"
+
+	if [ -d "/srv/$SERVICE_NAME/config" ]; then
+		echo "Configuration folder present: Yes"
 	else
-		echo "Configuration file present: No"
+		echo "Configuration folder present: No"
 	fi
-	
-	if [ -d "/home/$SERVICE_NAME/backups" ]; then
+
+	if [ -d "/srv/$SERVICE_NAME/backups" ]; then
 		echo "Backups folder present: Yes"
 	else
 		echo "Backups folder present: No"
 	fi
-	
-	if [ -d "/home/$SERVICE_NAME/logs" ]; then
+
+	if [ -d "/srv/$SERVICE_NAME/logs" ]; then
 		echo "Logs folder present: Yes"
 	else
 		echo "Logs folder present: No"
 	fi
-	
-	if [ -d "/home/$SERVICE_NAME/scripts" ]; then
-		echo "Scripts folder present: Yes"
-	else
-		echo "Scripts folder present: No"
-	fi
-	
-	if [ -d "/home/$SERVICE_NAME/server" ]; then
+
+	if [ -d "/srv/$SERVICE_NAME/server" ]; then
 		echo "Server folder present: Yes"
 		echo ""
 		echo "List of installed applications in the prefix:"
@@ -1093,56 +1102,80 @@ script_diagnostics() {
 	else
 		echo "Server folder present: No"
 	fi
-	
-	if [ -d "/home/$SERVICE_NAME/updates" ]; then
+
+	if [ -d "/srv/$SERVICE_NAME/updates" ]; then
 		echo "Updates folder present: Yes"
 	else
 		echo "Updates folder present: No"
 	fi
-	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
+
+	if [ -f "$CONFIG_DIR/$SERVICE_NAME-script.conf" ] ; then
+		echo "Script configuration file present: Yes"
+	else
+		echo "Script configuration file present: No"
+	fi
+
+	if [ -f "$CONFIG_DIR/$SERVICE_NAME-steam.conf" ] ; then
+		echo "Steam configuration file present: Yes"
+	else
+		echo "Steam configuration file present: No"
+	fi
+
+	if [ -f "$CONFIG_DIR/$SERVICE_NAME-discord.conf" ] ; then
+		echo "Discord configuration file present: Yes"
+	else
+		echo "Discord configuration file present: No"
+	fi
+
+	if [ -f "$CONFIG_DIR/$SERVICE_NAME-email.conf" ] ; then
+		echo "Email configuration file present: Yes"
+	else
+		echo "Email configuration file present: No"
+	fi
+
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-mkdir-tmpfs.service" ]; then
 		echo "Tmpfs mkdir service present: Yes"
 	else
 		echo "Tmpfs mkdir service present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-tmpfs.service" ]; then
 		echo "Tmpfs service present: Yes"
 	else
 		echo "Tmpfs service present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME.service" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME.service" ]; then
 		echo "Basic service present: Yes"
 	else
 		echo "Basic service present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.timer" ]; then
 		echo "Timer 1 timer present: Yes"
 	else
 		echo "Timer 1 timer present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-1.service" ]; then
 		echo "Timer 1 service present: Yes"
 	else
 		echo "Timer 1 service present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.timer" ]; then
 		echo "Timer 2 timer present: Yes"
 	else
 		echo "Timer 2 timer present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-timer-2.service" ]; then
 		echo "Timer 2 service present: Yes"
 	else
 		echo "Timer 2 service present: No"
 	fi
 	
-	if [ -f "/home/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
+	if [ -f "/srv/$SERVICE_NAME/.config/systemd/user/$SERVICE_NAME-send-notification.service" ]; then
 		echo "Notification sending service present: Yes"
 	else
 		echo "Notification sending service present: No"
@@ -1532,6 +1565,7 @@ case "$1" in
 		echo ""
 		echo "Wine functions:"
 		echo -e "${GREEN}rebuild_prefix ${RED}- ${GREEN}Reinstalls the wine prefix. Usefull if any wine prefix updates occoured.${NC}"
+		echo ""
 		;;
 #---------------------------
 #Basic script functions
