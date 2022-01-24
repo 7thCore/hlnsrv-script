@@ -20,11 +20,11 @@
 #If you do not know what any of these settings are you are better off leaving them alone. One thing might brake the other if you fiddle around with it.
 
 #Basics
-NAME="HlnSrv" #Name of the tmux session
-VERSION="1.2-1" #Package and script version
+export NAME="HlnSrv" #Name of the tmux session
+export VERSION="1.2-2" #Package and script version
 
 #Server configuration
-SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
+export SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
 SRV_DIR="/srv/$SERVICE_NAME/server" #Location of the server located on your hdd/ssd
 CONFIG_DIR="/srv/$SERVICE_NAME/config" #Location of this script
 UPDATE_DIR="/srv/$SERVICE_NAME/updates" #Location of update information for the script's automatic update feature
@@ -34,15 +34,13 @@ if [ -f "$CONFIG_DIR/$SERVICE_NAME-script.conf" ] ; then
 	TMPFS_ENABLE=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_tmpfs= | cut -d = -f2) #Get configuration for tmpfs
 	BCKP_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_bckp_delold= | cut -d = -f2) #Delete old backups.
 	LOG_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_log_delold= | cut -d = -f2) #Delete old logs.
-	LOG_GAME_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_log_game_delold= | cut -d = -f2) #Delete old game logs.
-	DUMP_GAME_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_dump_game_delold= | cut -d = -f2) #Delete old game dumps.
+	SAVE_DELOLD=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_save_delold= | cut -d = -f2) #Delete old game logs.
 	UPDATE_IGNORE_FAILED_ACTIVATIONS=$(cat $CONFIG_DIR/$SERVICE_NAME-script.conf | grep script_update_ignore_failed_startups= | cut -d = -f2) #Ignore failed startups during update configuration
 else
 	TMPFS_ENABLE=0
 	BCKP_DELOLD=7
 	LOG_DELOLD=7
-	LOG_GAME_DELOLD=7
-	DUMP_GAME_DELOLD=7
+	SAVE_DELOLD=7
 	UPDATE_IGNORE_FAILED_ACTIVATIONS=0
 fi
 
@@ -1480,9 +1478,8 @@ script_config_script() {
 	echo 'script_tmpfs=0' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
 	echo 'script_bckp_delold=14' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
 	echo 'script_log_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
-	echo 'script_log_game_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
-	echo 'script_dump_game_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
-	echo 'script_timeout_save=120' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_save_delold=7' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
+	echo 'script_update_ignore_failed_startups=0' >> $CONFIG_DIR/$SERVICE_NAME-script.conf
 
 	echo "Generating wine prefix"
 	script_generate_wine_prefix
