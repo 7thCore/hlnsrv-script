@@ -31,8 +31,8 @@ ExecStartPre=/usr/bin/hlnsrv-script server_tmux_install
 ExecStartPre=/usr/bin/hlnsrv-script send_notification_start_initialized
 ExecStart=/usr/bin/tmux -f /tmp/%u-tmux.conf -L %u-tmux.sock new-session -d -s HlnSrv 'env WINEARCH=win64 WINEDEBUG=warn+heap WINEPREFIX=/srv/hlnsrv/server wine /srv/hlnsrv/server/drive_c/Games/Hellion/HELLION_Dedicated.exe  2> /srv/hlnsrv/logs/hlnsrv-wine.log'
 ExecStartPost=/usr/bin/hlnsrv-script send_notification_start_complete
-ExecStop=/usr/bin/tmux -f /tmp/%u-tmux.conf -L %u-tmux.sock new-session -d -s HlnSrv-stop env WINEARCH=win64 WINEDEBUG=warn+heap WINEPREFIX=/srv/hlnsrv/server wine /srv/hlnsrv/server/drive_c/Games/Hellion/HELLION_Dedicated.exe -shutdown
 ExecStop=/usr/bin/hlnsrv-script send_notification_stop_initialized
+ExecStop=/usr/bin/tmux -f /tmp/%u-tmux.conf -L %u-tmux.sock new-session -d -s HlnSrv-stop env WINEARCH=win64 WINEDEBUG=warn+heap WINEPREFIX=/srv/hlnsrv/server wine /srv/hlnsrv/server/drive_c/Games/Hellion/HELLION_Dedicated.exe -shutdown
 ExecStop=/usr/bin/sleep 20
 ExecStopPost=/usr/bin/rm /tmp/%u-tmux.conf
 ExecStopPost=/usr/bin/hlnsrv-script move_wine_log
