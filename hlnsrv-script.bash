@@ -1723,7 +1723,7 @@ case "$1" in
 		script_send_notification_crash
 		;;
 	server_tmux_install)
-		script_server_tmux_install
+		script_server_tmux_install $2
 		;;
 	server_tmux_commands_install)
 		script_commands_tmux_install
