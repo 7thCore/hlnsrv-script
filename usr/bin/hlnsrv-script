@@ -21,7 +21,7 @@
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
-export VERSION="1.2-5" #Package and script version
+export VERSION="1.2-6" #Package and script version
 
 #Server configuration
 export SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
@@ -745,7 +745,7 @@ script_update() {
 		fi
 
 		IFS=","
-		for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager $SERVICE@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
+		for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager --plain $SERVICE_NAME@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
 			if [[ "$(systemctl --user show -p ActiveState --value $SERVER_SERVICE)" == "active" ]]; then
 				WAS_ACTIVE=("$SERVER_SERVICE" "${WAS_ACTIVE[@]}")
 			fi
@@ -816,7 +816,7 @@ script_verify_game_integrity() {
 	rm -rf "/srv/$SERVICE_NAME/.steam/appcache/appinfo.vdf"
 
 	IFS=","
-	for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager $SERVICE@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
+	for SERVER_SERVICE in $(systemctl --user list-units -all --no-legend --no-pager --plain $SERVICE_NAME@*.service | awk '{print $1}' | tr "\\n" "," | sed 's/,$//'); do
 		if [[ "$(systemctl --user show -p ActiveState --value $SERVER_SERVICE)" == "active" ]]; then
 			WAS_ACTIVE=("$SERVER_SERVICE" "${WAS_ACTIVE[@]}")
 		fi
