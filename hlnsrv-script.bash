@@ -21,7 +21,7 @@
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
-export VERSION="1.2-4" #Package and script version
+export VERSION="1.2-5" #Package and script version
 
 #Server configuration
 export SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
