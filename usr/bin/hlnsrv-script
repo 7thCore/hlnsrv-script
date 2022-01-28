@@ -276,7 +276,7 @@ script_reload_services() {
 script_prestart() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup $1" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was initialized at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -302,7 +302,7 @@ script_prestart() {
 script_poststart() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup $1" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
 		Server startup was completed at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -320,7 +320,7 @@ script_poststart() {
 script_prestop() {
 	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown $1" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -340,7 +340,7 @@ script_poststop() {
 
 	#Check if the server is still running, if it is wait for it to stop.
 	while true; do
-		tmux -L $SERVICE_NAME-$1-tmux.sock has-session -t $NAME 2>/dev/null
+		tmux -L $SERVICE_NAME-tmux.sock has-session -t $NAME 2>/dev/null
 		if [ $? -eq 1 ]; then
 			break
 		fi
@@ -355,22 +355,22 @@ script_poststop() {
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Sync from tmpfs to disk complete." | tee -a "$LOG_SCRIPT"
 	fi
 
-	if [ -f "/tmp/$SERVICE_NAME-$1-tmux.log" ]; then
-		rm /tmp/$SERVICE_NAME-$1-tmux.log
+	if [ -f "/tmp/$SERVICE_NAME-tmux.log" ]; then
+		rm /tmp/$SERVICE_NAME-tmux.log
 	fi
 
-	if [ -f "/tmp/$SERVICE_NAME-$1-tmux.conf" ]; then
-		rm /tmp/$SERVICE_NAME-$1-tmux.conf
+	if [ -f "/tmp/$SERVICE_NAME-tmux.conf" ]; then
+		rm /tmp/$SERVICE_NAME-tmux.conf
 	fi
 
-	if [ -f "$LOG_DIR_ALL/$SERVICE_NAME-wine-$1.log" ]; then
-		mv $LOG_DIR_ALL/$SERVICE_NAME-wine-$1.log $LOG_DIR/$SERVICE_NAME-wine-$1-$(date +"%Y-%m-%d_%H-%M").log
+	if [ -f "$LOG_DIR_ALL/$SERVICE_NAME-wine.log" ]; then
+		mv $LOG_DIR_ALL/$SERVICE_NAME-wine.log $LOG_DIR/$SERVICE_NAME-wine-$(date +"%Y-%m-%d_%H-%M").log
 	else
 		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Move wine log) Nothing to move." | tee -a "$LOG_SCRIPT"
 	fi
 
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown $1" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -1733,19 +1733,19 @@ case "$1" in
 #---------------------------
 #Hidden functions meant for systemd service use
 	pre-start)
-		script_prestart $2
+		script_prestart
 		;;
 	post-start)
-		script_poststart $2
+		script_poststart
 		;;
 	pre-stop)
-		script_prestop $2
+		script_prestop
 		;;
 	post-stop)
-		script_poststop $2
+		script_poststop
 		;;
 	send_notification_crash)
-		script_send_notification_crash $2
+		script_send_notification_crash
 		;;
 	server_tmux_install)
 		script_server_tmux_install $2 $3
