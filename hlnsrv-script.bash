@@ -21,7 +21,7 @@
 
 #Basics
 export NAME="HlnSrv" #Name of the tmux session
-export VERSION="1.2-6" #Package and script version
+export VERSION="1.2-7" #Package and script version
 
 #Server configuration
 export SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log
@@ -272,12 +272,12 @@ script_reload_services() {
 
 #---------------------------
 
-#Systemd service sends notification if notifications for start enabled
-script_send_notification_start_initialized() {
+#Pre-start functions to be called by the systemd service
+script_prestart() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
-		Server startup was initiated at $(date +"%d.%m.%Y %H:%M:%S")
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup $1" $EMAIL_RECIPIENT <<- EOF
+		Server startup was initialized at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
 	if [[ "$DISCORD_START" == "1" ]]; then
@@ -285,16 +285,24 @@ script_send_notification_start_initialized() {
 			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup was initialized.\"}" "$DISCORD_WEBHOOK"
 		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup initialized." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Server startup was initialized." | tee -a "$LOG_SCRIPT"
+
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Sync from disk to tmpfs has been initiated." | tee -a "$LOG_SCRIPT"
+		if [ -d "$SRV_DIR" ]; then
+			rsync -aAX --info=progress2 $SRV_DIR/ $TMPFS_DIR
+		fi
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Sync from disk to tmpfs complete." | tee -a "$LOG_SCRIPT"
+	fi
 }
 
 #---------------------------
 
-#Systemd service sends notification if notifications for start enabled
-script_send_notification_start_complete() {
+#Post-start functions to be called by the systemd service
+script_poststart() {
 	script_logs
 	if [[ "$EMAIL_START" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server startup" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server startup $1" $EMAIL_RECIPIENT <<- EOF
 		Server startup was completed at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -308,29 +316,61 @@ script_send_notification_start_complete() {
 
 #---------------------------
 
-#Systemd service sends notification if notifications for stop enabled
-script_send_notification_stop_initialized() {
+#Pre-stop functions to be called by the systemd service
+script_prestop() {
 	script_logs
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown $1" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was initiated at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
 	if [[ "$DISCORD_STOP" == "1" ]]; then
 		while IFS="" read -r DISCORD_WEBHOOK || [ -n "$DISCORD_WEBHOOK" ]; do
-			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress.\"}" "$DISCORD_WEBHOOK"
+			curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown was initialized.\"}" "$DISCORD_WEBHOOK"
 		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
-	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown in progress." | tee -a "$LOG_SCRIPT"
+	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Stop) Server shutdown was initialized." | tee -a "$LOG_SCRIPT"
 }
 
 #---------------------------
 
-#Systemd service sends notification if notifications for stop enabled
-script_send_notification_stop_complete() {
+#Post-stop functions to be called by the systemd service
+script_poststop() {
 	script_logs
+
+	#Check if the server is still running, if it is wait for it to stop.
+	while true; do
+		tmux -L $SERVICE_NAME-$1-tmux.sock has-session -t $NAME 2>/dev/null
+		if [ $? -eq 1 ]; then
+			break
+		fi
+		sleep 1
+	done
+
+	if [[ "$TMPFS_ENABLE" == "1" ]]; then
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Sync from tmpfs to disk has been initiated." | tee -a "$LOG_SCRIPT"
+		if [ -f "$TMPFS_DIR" ]; then
+			rsync -aAX --info=progress2 $TMPFS_DIR/ $SRV_DIR
+		fi
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Start) Sync from tmpfs to disk complete." | tee -a "$LOG_SCRIPT"
+	fi
+
+	if [ -f "/tmp/$SERVICE_NAME-$1-tmux.log" ]; then
+		rm /tmp/$SERVICE_NAME-$1-tmux.log
+	fi
+
+	if [ -f "/tmp/$SERVICE_NAME-$1-tmux.conf" ]; then
+		rm /tmp/$SERVICE_NAME-$1-tmux.conf
+	fi
+
+	if [ -f "$LOG_DIR_ALL/$SERVICE_NAME-wine-$1.log" ]; then
+		mv $LOG_DIR_ALL/$SERVICE_NAME-wine-$1.log $LOG_DIR/$SERVICE_NAME-wine-$1-$(date +"%Y-%m-%d_%H-%M").log
+	else
+		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Move wine log) Nothing to move." | tee -a "$LOG_SCRIPT"
+	fi
+
 	if [[ "$EMAIL_STOP" == "1" ]]; then
-		mail -r "$EMAIL_SENDER ($NAME-$SERVICE_NAME)" -s "Notification: Server shutdown" $EMAIL_RECIPIENT <<- EOF
+		mail -r "$EMAIL_SENDER ($NAME)" -s "Notification: Server shutdown $1" $EMAIL_RECIPIENT <<- EOF
 		Server shutdown was complete at $(date +"%d.%m.%Y %H:%M:%S")
 		EOF
 	fi
@@ -378,18 +418,6 @@ script_send_notification_crash() {
 		done < $CONFIG_DIR/discord_webhooks.txt
 	fi
 	echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Crash) Server crashed. Please review your logs located in $CRASH_DIR." | tee -a "$LOG_SCRIPT"
-}
-
-#---------------------------
-
-#Move the wine log and add date and time to it after service shutdown
-script_move_wine_log() {
-	script_logs
-	if [ -f "$LOG_DIR_ALL/$SERVICE_NAME-wine.log" ]; then
-		mv $LOG_DIR_ALL/$SERVICE_NAME-wine.log $LOG_DIR/$SERVICE_NAME-wine-$(date +"%Y-%m-%d_%H-%M").log
-	else
-		echo "$(date +"%Y-%m-%d %H:%M:%S") [$VERSION] [$NAME] [INFO] (Move wine log) Nothing to move." | tee -a "$LOG_SCRIPT"
-	fi
 }
 
 #---------------------------
@@ -1542,7 +1570,7 @@ script_config_script() {
 #---------------------------
 
 #Do not allow for another instance of this script to run to prevent data loss
-if [[ "send_notification_start_initialized" != "$1" ]] && [[ "send_notification_start_complete" != "$1" ]] && [[ "send_notification_stop_initialized" != "$1" ]] && [[ "send_notification_stop_complete" != "$1" ]] && [[ "send_notification_crash" != "$1" ]] && [[ "move_wine_log" != "$1" ]] && [[ "server_tmux_install" != "$1" ]] && [[ "server_tmux_commands_install" != "$1" ]] && [[ "attach" != "$1" ]] && [[ "attach_commands" != "$1" ]] && [[ "status" != "$1" ]]; then
+if [[ "pre-start" != "$1" ]] && [[ "post-start" != "$1" ]] && [[ "pre-stop" != "$1" ]] && [[ "post-stop" != "$1" ]] && [[ "send_notification_crash" != "$1" ]] && [[ "server_tmux_install" != "$1" ]] && [[ "attach" != "$1" ]] && [[ "status" != "$1" ]]; then
 	SCRIPT_PID_CHECK=$(basename -- "$0")
 	if pidof -x "$SCRIPT_PID_CHECK" -o $$ > /dev/null; then
 		echo "An another instance of this script is already running, please clear all the sessions of this script before starting a new session"
@@ -1704,29 +1732,23 @@ case "$1" in
 		;;
 #---------------------------
 #Hidden functions meant for systemd service use
-	move_wine_log)
-		script_move_wine_log
+	pre-start)
+		script_prestart $2
 		;;
-	send_notification_start_initialized)
-		script_send_notification_start_initialized
+	post-start)
+		script_poststart $2
 		;;
-	send_notification_start_complete)
-		script_send_notification_start_complete
+	pre-stop)
+		script_prestop $2
 		;;
-	send_notification_stop_initialized)
-		script_send_notification_stop_initialized
-		;;
-	send_notification_stop_complete)
-		script_send_notification_stop_complete
+	post-stop)
+		script_poststop $2
 		;;
 	send_notification_crash)
-		script_send_notification_crash
+		script_send_notification_crash $2
 		;;
 	server_tmux_install)
-		script_server_tmux_install $2
-		;;
-	server_tmux_commands_install)
-		script_commands_tmux_install
+		script_server_tmux_install $2 $3
 		;;
 	timer_one)
 		script_timer_one
