@@ -2,7 +2,7 @@
 
 pkgname=hlnsrv-script
 pkgver=1.2
-pkgrel=6
+pkgrel=7
 pkgdesc='Hellion server script for running the server on linux with wine compatibility layer.'
 arch=('x86_64')
 license=('GPL3')
@@ -59,14 +59,14 @@ source=('bash_profile'
         'hlnsrv-tmpfs.service')
 sha256sums=('f1e2f643b81b27d16fe79e0563e39c597ce42621ae7c2433fd5b70f1eeab5d63'
             'b834287ecfe22a85ca7205b14e7a2ab7a4651ba48e6ba1dbbb76571a62356ca5'
-            '0fa8ac6039fb21e894861024546f75587f320eb96c93b6cea7a52d91d8c1b3b0'
+            'ea40928f84e6d9a9b83f5d59dab24af8c1d19f32ceb01b5527a438357c4750e9'
             'd899e55144563442ef526f13fe7511333015a04fce3a8d411943983597f467f3'
-            '25fee88a1fff32ccc40f66356f80eb3fa528e07c5cc018722963b791a5fc98fb'
+            'd972eb008f8577325940ead768517cb2b2ef5aedb189951584d56eb5f58577cc'
             '7a0953dca1ee275ad5f6d46ba43fd320f4290f0201cac4f9f5d7c634dfbfd726'
             '6a0519681663165fd348eabb855f6469e8f586ae8658e2b48d59895b4a8799ab'
             'a7e197d86ff5a15006d2706f1e10481c52b8fef37674d173e615d07ce44f00f5'
             '0073cdafd1b467144bfcb80d8781002e043323a7f4da0f77d457f47d89a1dec7'
-            '9bd9eb2f9618192221bd9e2d56d012180969284270c8ea0252b1ecff2828b013')
+            '132a7926f56ba2e78e8e55b74dc2167765d14a39b57851fe73d44addf8831b6f')
 
 package() {
   install -d -m0755 "${pkgdir}/usr/bin"
