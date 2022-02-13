@@ -1,6 +1,5 @@
 getent group hlnsrv >/dev/null || groupadd --system hlnsrv
-getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv \
-  -d /srv/hlnsrv/ -s /bin/bash hlnsrv
+getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv -d /srv/hlnsrv/ -s /bin/bash hlnsrv
 
 install -dm700 srv/hlnsrv/backups
 install -dm700 srv/hlnsrv/config

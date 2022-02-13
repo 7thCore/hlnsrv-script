@@ -1,0 +1,2 @@
+loginctl disable-linger hlnsrv
+systemctl stop user@$(id -u hlnsrv).service
