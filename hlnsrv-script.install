@@ -1,9 +1,19 @@
 post_install() {
-  getent group hlnsrv >/dev/null || groupadd --system hlnsrv
-  getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv \
-    -d /srv/hlnsrv/ -s /bin/bash hlnsrv
+	getent group hlnsrv >/dev/null || groupadd --system hlnsrv
+	getent passwd hlnsrv >/dev/null || useradd --system -g hlnsrv -d /srv/hlnsrv/ -s /bin/bash hlnsrv
 
-  chown -R hlnsrv:hlnsrv srv/hlnsrv
-  loginctl enable-linger hlnsrv
-  systemctl start user@$(id -u hlnsrv).service
+	chown -R hlnsrv:hlnsrv srv/hlnsrv
+	loginctl enable-linger hlnsrv
+	systemctl start user@$(id -u hlnsrv).service
+}
+
+post_upgrade() {
+	chown -R hlnsrv:hlnsrv srv/hlnsrv/.config/systemd/user
+	chown hlnsrv:hlnsrv srv/hlnsrv/*
+}
+
+post_remove() {
+	loginctl disable-linger hlnsrv
+	systemctl stop user@$(id -u hlnsrv).service
+	userdel --remove hlnsrv
 }
