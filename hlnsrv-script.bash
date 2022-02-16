@@ -21,7 +21,7 @@
 
 #Static script variables
 export NAME="HlnSrv" #Name of the tmux session.
-export VERSION="1.3-1" #Package and script version.
+export VERSION="1.3-2" #Package and script version.
 export SERVICE_NAME="hlnsrv" #Name of the service files, user, script and script log.
 export LOG_DIR="/srv/$SERVICE_NAME/logs" #Location of the script's log files.
 export LOG_STRUCTURE="$LOG_DIR/$(date +"%Y")/$(date +"%m")/$(date +"%d")" #Folder structure of the script's log files.
@@ -1291,7 +1291,7 @@ script_config_discord() {
 			fi
 		echo ""
 		read -p "Discord notifications for tmpfs partition being close to full? (y/n): " INSTALL_DISCORD_TMPFS_SPACE_ENABLE
-			if [[ "$INSTALL_DISCORD_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			if [[ "$INSTALL_DISCORD_TMPFS_SPACE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				INSTALL_DISCORD_TMPFS_SPACE="1"
 			else
 				INSTALL_DISCORD_TMPFS_SPACE="0"
@@ -1363,7 +1363,7 @@ script_config_email() {
 			fi
 		echo ""
 		read -p "Email notifications for tmpfs partition being close to full? (y/n): " INSTALL_EMAIL_TMPFS_SPACE_ENABLE
-			if [[ "$INSTALL_DISCORD_CRASH_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			if [[ "$INSTALL_EMAIL_TMPFS_SPACE_ENABLE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				INSTALL_EMAIL_TMPFS_SPACE="1"
 			else
 				INSTALL_EMAIL_TMPFS_SPACE="0"
@@ -1372,7 +1372,7 @@ script_config_email() {
 			read -p "Configure postfix? (y/n): " INSTALL_EMAIL_CONFIGURE
 			if [[ "$INSTALL_EMAIL_CONFIGURE" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				echo ""
-				read -p "Enter the relay host (example: smtp.gmail.com): " INSTALL_EMAIL_RELAY_HOSTNAME
+				read -p "Enter the relay host (example: smtp.gmail.com): " INSTALL_EMAIL_RELAY_HOST
 				echo ""
 				read -p "Enter the relay host port (example: 587): " INSTALL_EMAIL_RELAY_PORT
 				echo ""
@@ -1431,7 +1431,7 @@ script_config_email() {
 	echo 'email_start='"$INSTALL_EMAIL_START" >> $CONFIG_DIR/$SERVICE_NAME-email.conf
 	echo 'email_stop='"$INSTALL_EMAIL_STOP" >> $CONFIG_DIR/$SERVICE_NAME-email.conf
 	echo 'email_crash='"$INSTALL_EMAIL_CRASH" >> $CONFIG_DIR/$SERVICE_NAME-email.conf
-	echo 'email_tmpfs_space='"$INSTALL_EMAIL_CRASH" >> $CONFIG_DIR/$SERVICE_NAME-email.conf
+	echo 'email_tmpfs_space='"$INSTALL_EMAIL_TMPFS_SPACE" >> $CONFIG_DIR/$SERVICE_NAME-email.conf
 	chown $SERVICE_NAME:$SERVICE_NAME $CONFIG_DIR/$SERVICE_NAME-email.conf
 	echo "Done"
 }
