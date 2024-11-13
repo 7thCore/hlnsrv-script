@@ -1,8 +1,8 @@
 Package: hlnsrv-script
-Version: 1.3-6
-Architecture: all
+Version: 1.4-1
+Architecture: amd64
 Essential: no
 Priority: optional
-Depends: bash, coreutils, sudo, libpam-systemd, grep, sed, gawk, curl, rsync, wget, findutils, tmux, zip, unzip, p7zip, postfix, s-nail, cabextract, xvfb, steamcmd, winehq-staging (<= 7.1)
+Depends: bash, coreutils, sudo, libpam-systemd, grep, sed, gawk, curl, rsync, wget, findutils, tmux, zip, unzip, p7zip, postfix, s-nail, cabextract, xvfb, steamcmd, winehq-staging
 Maintainer: 7thCore
 Description: Hellion server script for running the server on linux with wine compatibility layer.
