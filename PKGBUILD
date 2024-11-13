@@ -1,8 +1,8 @@
 # Maintainer: 7thCore
 
 pkgname=hlnsrv-script
-pkgver=1.3
-pkgrel=6
+pkgver=1.4
+pkgrel=1
 pkgdesc='Hellion server script for running the server on linux with wine compatibility layer.'
 arch=('x86_64')
 license=('GPL3')
@@ -24,7 +24,7 @@ depends=('bash'
          's-nail'
          'cabextract'
          'xorg-server-xvfb'
-         'wine<=7.1'
+         'wine'
          'wine-mono'
          'wine_gecko'
          'winetricks'
@@ -60,7 +60,7 @@ source=('bash_profile'
         'hlnsrv-tmpfs.service')
 sha256sums=('f1e2f643b81b27d16fe79e0563e39c597ce42621ae7c2433fd5b70f1eeab5d63'
             'b834287ecfe22a85ca7205b14e7a2ab7a4651ba48e6ba1dbbb76571a62356ca5'
-            '860f38e97ec4db10265aaedc9abd850ffdb079867fafb8d1bfe4fd9fdc29f151'
+            '189a6c705c0b98db23f653ce267de7da42fac6615486c8cab4a24db5de555948'
             'd899e55144563442ef526f13fe7511333015a04fce3a8d411943983597f467f3'
             'd972eb008f8577325940ead768517cb2b2ef5aedb189951584d56eb5f58577cc'
             '7a0953dca1ee275ad5f6d46ba43fd320f4290f0201cac4f9f5d7c634dfbfd726'
